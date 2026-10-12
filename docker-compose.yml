@@ -1,0 +1,14 @@
+services:
+  telegram-ingestion:
+    build: .
+    container_name: krypto2-telegram-ingestion
+    env_file:
+      - .env
+    environment:
+      TELEGRAM_SESSION_PATH: data/telegram/user
+      TELEGRAM_READY_MARKER_PATH: data/telegram/.ready
+    volumes:
+      - ./data/telegram:/app/data/telegram
+      - ./data/trading:/app/data/trading
+    restart: unless-stopped
+    stop_grace_period: 30s

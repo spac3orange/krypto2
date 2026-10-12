@@ -1,0 +1,16 @@
+---
+description: Clean Architecture and dependency inversion rules
+alwaysApply: true
+---
+
+# Architecture
+
+- MUST follow Clean Architecture / dependency inversion.
+- Domain MUST NOT depend on infrastructure or external SDKs.
+- Application MUST NOT import Telethon (`telethon.*`).
+- Telegram infrastructure MUST NOT import future Bybit / exchange infrastructure.
+- Business logic MUST NOT live in transport / event handlers.
+- Telethon events MUST be mapped to internal DTOs before leaving the infrastructure layer.
+- External SDKs MUST be isolated behind adapters/factories.
+- Handlers MUST be thin: receive → map → dedupe → process → log errors.
+- Future pipeline MUST be: Message → Parser → Validator → Risk → Executor (never handler → order).

@@ -1,0 +1,47 @@
+{
+  "description": "Testnet smoke set. One symbol each so an open position does not skip the next row. dump opens long, pump opens short.",
+  "signals": [
+    {
+      "symbol": "BTC",
+      "side": "dump",
+      "change": "5",
+      "timeframe": "10m",
+      "signal_24h": 1
+    },
+    {
+      "symbol": "ETH",
+      "side": "pump",
+      "change": "4",
+      "timeframe": "15m",
+      "signal_24h": 1
+    },
+    {
+      "symbol": "SOL",
+      "side": "dump",
+      "change": "8",
+      "timeframe": "5m",
+      "signal_24h": 2
+    },
+    {
+      "symbol": "XRP",
+      "side": "pump",
+      "change": "3.5",
+      "timeframe": "1h",
+      "signal_24h": 1
+    },
+    {
+      "symbol": "DOGE",
+      "side": "dump",
+      "change": "6",
+      "timeframe": "10m",
+      "signal_24h": 3
+    },
+    {
+      "symbol": "LINK",
+      "side": "pump",
+      "change": "7.5",
+      "timeframe": "15m",
+      "signal_24h": 1
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+---
+description: Trading safety principles (even before execution exists)
+alwaysApply: true
+---
+
+# Trading Safety
+
+- MUST NOT execute orders directly from Telegram handlers.
+- Order execution MAY exist only after parsing + validation + risk checks (future stages).
+- MUST design for idempotency: duplicate Telegram events MUST NOT imply duplicate orders.
+- Edited messages MUST NOT automatically create a second order.
+- Stale signal validation MUST exist before any future live trading.
+- Paper/testnet mode MUST appear before mainnet execution.
+- Production/live trading MUST require explicit configuration; NEVER enable via hidden default.
+- Every future execution MUST correlate to a stable event / correlation ID.

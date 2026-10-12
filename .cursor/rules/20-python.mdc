@@ -1,0 +1,16 @@
+---
+description: Python coding standards for async services
+alwaysApply: true
+---
+
+# Python
+
+- MUST use type hints on public functions, methods, and attributes.
+- MUST use async/await for I/O; MUST NOT use blocking calls inside async handlers.
+- MUST NOT call `asyncio.run()` inside an already-running event loop.
+- MUST use timezone-aware UTC datetimes (`datetime.timezone.utc` / `datetime.UTC`).
+- MUST use `pathlib.Path` instead of string path concatenation.
+- MUST use enums instead of magic strings for event types and similar constants.
+- MUST prefer frozen dataclasses / Pydantic models for DTOs where appropriate.
+- MUST keep functions small with explicit constructor dependencies.
+- MUST NOT introduce global mutable state.

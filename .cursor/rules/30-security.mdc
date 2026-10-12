@@ -1,0 +1,14 @@
+---
+description: Security rules for secrets, sessions, and credentials
+alwaysApply: true
+---
+
+# Security
+
+- MUST NOT hardcode secrets (API IDs/hashes, session strings, phones, codes, passwords, exchange keys).
+- MUST NOT commit `.env`, Telegram session files, or real credentials.
+- MUST keep `.env.example` placeholders only.
+- MUST NOT log authentication codes, 2FA passwords, session file contents, or StringSession values.
+- MUST NOT include secret values in exception messages, tests fixtures, or docs.
+- Telegram session files MUST be treated as sensitive credentials.
+- Future exchange credentials MUST live only in secrets/config layers, never in Telegram transport.

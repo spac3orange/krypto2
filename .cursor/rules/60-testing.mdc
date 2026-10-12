@@ -1,0 +1,13 @@
+---
+description: Testing standards for unit and integration suites
+alwaysApply: true
+---
+
+# Testing
+
+- Critical logic MUST have automated tests.
+- Tests MUST be deterministic.
+- Unit tests MUST NOT call the real Telegram API or any exchange API.
+- External services MUST be mocked/faked through interfaces/ports.
+- Integration tests that need real Telegram MUST be marked `@pytest.mark.integration` and skipped by default.
+- Bug fixes MUST include a regression test when practical.

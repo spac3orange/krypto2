@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=75.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "krypto2"
+version = "0.1.0"
+description = "Telegram ingestion layer for trading signal pipeline"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "telethon==1.45.0",
+    "pydantic==2.11.7",
+    "pydantic-settings==2.10.1",
+    "python-socks[asyncio]==2.7.1",
+    "pybit==5.17.0",
+    "aiogram==3.22.0",
+    "aiohttp-socks==0.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.4.1",
+    "pytest-asyncio==1.1.0",
+    "ruff==0.12.7",
+    "mypy==1.17.0",
+]
+
+[project.scripts]
+krypto2 = "app.main:main"
+krypto2-telegram-auth = "app.telegram.auth:main"
+krypto2-simulate = "app.tools.simulate_signal:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+    "integration: tests that require a real Telegram session (skipped by default)",
+    "bybit_demo: opt-in tests against Bybit Demo Trading (skipped by default)",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+packages = ["app"]
+mypy_path = "."
+
+[[tool.mypy.overrides]]
+module = ["telethon.*", "pybit.*", "aiogram.*"]
+ignore_missing_imports = true

@@ -1,0 +1,47 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Telegram sessions (equivalent to credentials)
+data/telegram/*.session
+data/telegram/*.session-journal
+data/telegram/.ready
+*.session
+*.session-journal
+
+# Trading execution journal
+data/trading/*.sqlite3
+data/trading/*.sqlite3-*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local data
+*.log

@@ -1,0 +1,16 @@
+---
+description: Telegram ingestion layer conventions
+globs: app/**/telegram/**
+alwaysApply: false
+---
+
+# Telegram
+
+- Telethon MUST be imported only inside `app/infrastructure/telegram/` (plus auth entry alias that delegates there).
+- Event handlers MUST remain thin; no parsing, validation, risk, or order logic.
+- Every event MUST receive a stable `event_id`.
+- A Telegram message MUST NEVER directly trigger a trade / order.
+- Original Telegram message timestamps MUST be preserved on the internal DTO.
+- Edited messages MUST be distinct from new messages (`MESSAGE_EDITED` vs `NEW_MESSAGE`).
+- Transport MUST NOT filter by signal age; age eligibility belongs to a future validator.
+- Source chat MUST come from configuration, never hardcoded.

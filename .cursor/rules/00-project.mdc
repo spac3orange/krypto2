@@ -1,0 +1,14 @@
+---
+description: Project-wide engineering standards for krypto2
+alwaysApply: true
+---
+
+# Project
+
+- MUST target Python 3.12 only (`requires-python = ">=3.12,<3.13"`).
+- MUST pin critical dependency versions (especially Telethon); MUST NOT use floating ranges without justification.
+- MUST write production-ready code; temporary workarounds require an explicit `TODO` with reason.
+- MUST NOT leave dead code, unused imports, or commented-out blocks.
+- MUST study existing repository abstractions before introducing new architecture.
+- MUST NOT duplicate existing modules or ports.
+- MUST keep this stage free of Bybit / exchange order execution logic.
