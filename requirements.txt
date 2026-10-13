@@ -1,0 +1,9 @@
+# Runtime dependencies. Keep in sync with [project.dependencies] in pyproject.toml.
+# Python 3.12 only.
+telethon==1.45.0
+pydantic==2.11.7
+pydantic-settings==2.10.1
+python-socks[asyncio]==2.7.1
+pybit==5.17.0
+aiogram==3.22.0
+aiohttp-socks==0.12.0
