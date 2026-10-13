@@ -7,6 +7,8 @@ import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
+from app.infrastructure.persistence.sqlite_files import ensure_writable_parent
+
 
 class SqliteRuntimeConfigStore:
     """Table ``runtime_config`` in the trading SQLite file."""
@@ -14,7 +16,7 @@ class SqliteRuntimeConfigStore:
     def __init__(self, path: Path) -> None:
         self._path = path
         self._lock = threading.Lock()
-        self._path.parent.mkdir(parents=True, exist_ok=True)
+        ensure_writable_parent(self._path)
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:

@@ -11,6 +11,7 @@ from pathlib import Path
 from app.core.errors import ExecutionConflictError
 from app.domain.trading.enums import ExecutionStatus
 from app.domain.trading.models import ExecutionRecord
+from app.infrastructure.persistence.sqlite_files import ensure_writable_parent
 
 
 def _dec(value: str | None) -> Decimal | None:
@@ -31,7 +32,7 @@ class SqliteExecutionStore:
     def __init__(self, path: Path) -> None:
         self._path = path
         self._lock = threading.Lock()
-        self._path.parent.mkdir(parents=True, exist_ok=True)
+        ensure_writable_parent(self._path)
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:

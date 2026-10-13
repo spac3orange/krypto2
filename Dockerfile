@@ -9,7 +9,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN groupadd --system app && useradd --system --gid app --create-home app
+# Must match the owner of the host folders mounted into /app/data.
+ARG APP_UID=1000
+ARG APP_GID=1000
+
+RUN groupadd --gid "${APP_GID}" app \
+    && useradd --uid "${APP_UID}" --gid app --create-home app
 
 COPY pyproject.toml README.md ./
 COPY app ./app

@@ -85,7 +85,7 @@ Rounded to instrument `tickSize`. Optional SL via `STOP_LOSS_ENABLED` / `STOP_LO
 - Reserve event_id **before** create; on restart/duplicate → reconcile, never blind re-create
 - Uncertain create → lookup by `orderLinkId`, never second submit
 
-## Operator bot
+## Operator execution
 
 Optional aiogram bot. It does not read the signal chat. It:
 
@@ -125,6 +125,17 @@ Never commit secrets. Never enable withdrawal on trading keys.
 ```bash
 docker compose up --build
 ```
+
+The container runs `python -m app`: Telegram ingestion and, when `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_ADMIN_IDS` are set in `.env`, the operator bot in the same process. Check with `docker compose logs -f` for `bot.started` (or `bot.disabled`). A `PROXY_URL` pointing at `127.0.0.1` refers to the container itself, not the host; use the host address instead.
+
+The container user has UID/GID 1000 by default. Host folders mounted into `/app/data` must be writable by it, otherwise SQLite fails with `unable to open database file`:
+
+```bash
+mkdir -p data/telegram data/trading
+sudo chown -R 1000:1000 data
+```
+
+For another owner, build with `APP_UID=$(id -u) APP_GID=$(id -g) docker compose up -d --build`.
 
 Volumes:
 

@@ -52,6 +52,13 @@ async def run_ingestion() -> None:
         await bot.start()
         if bot.notifier is not None:
             notifier = bot.notifier
+    else:
+        log_event(
+            logger,
+            logging.WARNING,
+            "bot.disabled",
+            "Operator bot not started: TELEGRAM_BOT_TOKEN is empty",
+        )
 
     trading: TradingSubsystem | None = await build_trading_subsystem(
         settings,
