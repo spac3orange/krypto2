@@ -109,23 +109,26 @@ _FIELD_HELP: dict[str, _FieldHelp] = {
 }
 
 
-def format_runtime_config(config: RuntimeTradingConfig) -> str:
-    """Current editable settings with a short Russian caption for each value."""
+def _config_rows(config: RuntimeTradingConfig) -> tuple[tuple[str, str], ...]:
     stop = "выкл" if not config.stop_loss_enabled else f"{config.stop_loss_pct}%"
     take = "выкл" if not config.take_profit_enabled else f"{config.take_profit_pct}%"
     edited = "да" if config.execute_edited_messages else "нет"
-    rows = (
+    return (
         ("TRADING_MODE", config.trading_mode.value),
         ("BYBIT_LEVERAGE", str(config.bybit_leverage)),
-        ("TRADE_MARGIN_PCT", str(config.trade_margin_pct)),
+        ("TRADE_MARGIN_PCT", f"{config.trade_margin_pct}%"),
         ("ORDER_SIZING_PRICE", config.order_sizing_price.value),
         ("TAKE_PROFIT", take),
         ("STOP_LOSS", stop),
-        ("MAX_SIGNAL_AGE_SECONDS", str(config.max_signal_age_seconds)),
+        ("MAX_SIGNAL_AGE_SECONDS", f"{config.max_signal_age_seconds} с"),
         ("EXECUTE_EDITED_MESSAGES", edited),
     )
+
+
+def format_runtime_config(config: RuntimeTradingConfig) -> str:
+    """Current editable settings with a short Russian caption for each value."""
     lines = ["<b><u>Настройки</u></b>", ""]
-    for key, value in rows:
+    for key, value in _config_rows(config):
         field = _FIELD_HELP[_help_key(key)]
         lines.append(f"<b><u>{html.escape(key)}</u></b> = <code>{html.escape(value)}</code>")
         lines.append(f"<b>{html.escape(field.title)}</b>")
@@ -136,28 +139,22 @@ def format_runtime_config(config: RuntimeTradingConfig) -> str:
     return "\n".join(lines).rstrip()
 
 
-def config_start_text() -> str:
-    """Short command list for /start."""
-    return (
-        "Команды:\n"
-        "/config — текущие настройки\n"
-        "/help — как работать и что значит каждый ключ\n"
-        "/set КЛЮЧ ЗНАЧЕНИЕ — изменить настройку\n"
-        "\n"
-        "Ключи:\n"
-        "TRADING_MODE (disabled|demo)\n"
-        "BYBIT_LEVERAGE\n"
-        "TRADE_MARGIN_PCT\n"
-        "ORDER_SIZING_PRICE (lastPrice|markPrice)\n"
-        "TAKE_PROFIT_ENABLED (true|false)\n"
-        "TAKE_PROFIT_PCT\n"
-        "STOP_LOSS_ENABLED (true|false)\n"
-        "STOP_LOSS_PCT\n"
-        "MAX_SIGNAL_AGE_SECONDS\n"
-        "EXECUTE_EDITED_MESSAGES (true|false)\n"
-        "\n"
-        "Ключи биржи и токен бота здесь не меняются."
-    )
+def config_start_text(config: RuntimeTradingConfig) -> str:
+    """Short /start screen: commands and current values."""
+    lines = [
+        "<b><u>Команды</u></b>",
+        "/config — настройки с описанием",
+        "/help — как работать и что значит каждый ключ",
+        "/set КЛЮЧ ЗНАЧЕНИЕ — изменить настройку",
+        "",
+        "<b><u>Текущие настройки</u></b>",
+    ]
+    for key, value in _config_rows(config):
+        title = html.escape(_FIELD_HELP[_help_key(key)].title)
+        lines.append(f"<b>{title}:</b> <code>{html.escape(value)}</code>")
+    lines.append("")
+    lines.append("<i>Ключи биржи и токен бота здесь не меняются.</i>")
+    return "\n".join(lines)
 
 
 def config_help_text() -> str:

@@ -87,11 +87,17 @@ def test_sqlite_config_roundtrip(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert again.get().trade_margin_pct == Decimal("2.5")
 
 
-def test_start_is_short_and_help_is_detailed() -> None:
-    start = config_start_text()
+def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = RuntimeConfigService(_settings(monkeypatch), MemoryConfigStore())
+    service.seed()
+    start = config_start_text(service.get())
     help_text = config_help_text()
-    assert "Ключи:" in start
+    assert "<b><u>Текущие настройки</u></b>" in start
+    assert "<b>Режим торговли:</b> <code>demo</code>" in start
+    assert "<b>Плечо:</b> <code>5</code>" in start
+    assert "<b>Стоп, % от цены входа:</b> <code>3%</code>" in start
     assert "Как работать" not in start
+    assert "Лонг закрывается" not in start
     assert "sqlite" not in start.lower()
     assert "<b><u>Как работать</u></b>" in help_text
     assert "python -m app" in help_text

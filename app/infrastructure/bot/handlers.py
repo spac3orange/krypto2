@@ -34,7 +34,7 @@ def build_router(admin_ids: frozenset[int], config: RuntimeConfigService) -> Rou
 
     @admin.message(Command("start"))
     async def start_command(message: Message) -> None:
-        await message.answer(config_start_text())
+        await message.answer(config_start_text(config.get()), parse_mode=ParseMode.HTML)
 
     @admin.message(Command("help"))
     async def help_command(message: Message) -> None:
