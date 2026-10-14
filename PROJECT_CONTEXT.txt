@@ -1,276 +1,419 @@
 ================================================================================
-KRYPTO2 — ARCHITECT HANDOFF CONTEXT
-Date: 2026-10-10
+KRYPTO2 — FULL ARCHITECT HANDOFF CONTEXT
+Date: 2026-10-13
 Audience: project architect (next-stage planning)
-Scope: factual snapshot of what exists, constraints, and deliberate gaps
+Purpose: factual snapshot of stack, architecture, signal format, scripts, settings,
+         deliberate gaps, and hard constraints
 ================================================================================
 
 --------------------------------------------------------------------------------
-1. PRODUCT GOAL (END STATE)
+1. PRODUCT GOAL
 --------------------------------------------------------------------------------
 
-Automated trading pipeline driven by Telegram signal-bot messages:
+Automated trading pipeline driven by Telegram pump/dump signal-bot messages:
 
-  Telegram source → ingest → parse signal → validate → risk → execute on Bybit
+  Telegram source
+    → ingest (Telethon user session)
+    → parse signal
+    → validate
+    → size position
+    → execute on Bybit USDT linear perpetual (Demo Trading or mainnet)
+    → set TP/SL from actual fill price
+    → notify operator via optional Telegram Bot API bot
 
-Business mapping already encoded in parsing layer:
+Business mapping (encoded in parser, not in exchange layer):
 
-  DUMP → logical BUY
-  PUMP → logical SELL
+  DUMP → logical BUY  → open LONG
+  PUMP → logical SELL → open SHORT
 
-These are logical actions only. No exchange orders exist yet.
-
-Primary signal source (current ops config): Telegram bot username such as
-pump_screener_bot (configured via env; not hardcoded).
+Primary signal source: external Telegram bot (e.g. pump_screener_bot style),
+configured via TELEGRAM_SOURCE_USERNAME or TELEGRAM_SOURCE_CHAT_ID (not hardcoded).
 
 --------------------------------------------------------------------------------
 2. CURRENT IMPLEMENTATION STATUS
 --------------------------------------------------------------------------------
 
-DONE — Stage A: Telegram ingestion
-  - User MTProto session via Telethon (not Bot API)
-  - Interactive auth CLI + non-interactive runtime
-  - Source filter (chat_id XOR username)
-  - NEW_MESSAGE + MESSAGE_EDITED
-  - Internal DTO TelegramMessageEvent (Telethon does not leak beyond infra)
-  - Stable event_id + in-memory dedupe
-  - Structured JSON logging
-  - Optional HTTP/SOCKS proxy (PROXY_URL)
-  - Graceful SIGINT/SIGTERM shutdown
-  - Docker (non-root, session volume, readiness file marker)
+DONE
+  - Telegram MTProto ingestion (Telethon user session)
+  - Interactive auth CLI; Docker runtime with session volume
+  - Signal parse (deterministic regex)
+  - Validation (age, edited messages, exchange filter)
+  - Instrument resolve (ticker → SYMBOLUSDT linear)
+  - Position sizing from equity × margin% × leverage / price
+  - Bybit Demo Trading + mainnet kill-switch
+  - Durable SQLite execution journal + orderLinkId idempotency
+  - TP/SL after fill (price % from avg entry)
+  - Operator bot (aiogram): signal/order copies + runtime config /set
+  - Simulate CLI (inject synthetic signals without Telegram)
+  - Proxy for Telethon and operator bot
   - Cursor engineering rules (.cursor/rules/*.mdc)
 
-DONE — Stage B: Signal recognition (parse + log only)
-  - Generic trading domain (Telegram-agnostic)
-  - Deterministic regex/text parser → ParsedTradingSignal
-  - Integration inside application MessageProcessor (not in Telethon handlers)
-  - Logs: trading.signal.detected / trading.signal.rejected
+PARTIAL / THIN
+  - Risk layer: only existing-position skip + min qty/notional reject
+  - No portfolio exposure limits, daily loss limits, max concurrent positions
+  - No multi-TP / trailing / partial close
+  - Margin mode is observed/checked optionally, never auto-switched
 
-NOT DONE (explicitly out of scope so far)
-  - SignalValidator / stale-age rejection
-  - RiskManager
-  - Symbol → Bybit instrument mapping (e.g. SAGA → SAGAUSDT)
-  - Bybit API / pybit / credentials / orders
-  - TP/SL/leverage/balances
-  - Persistent storage (DB/Redis) for events or dedupe
-  - Durable idempotency across restarts
-  - HTTP API / FastAPI / UI
-  - Paper/testnet execution mode
-  - Multi-source ingestion
-
-Runtime pipeline today:
-
-  Telegram
-    → Telethon (infra)
-    → mapper → TelegramMessageEvent
-    → EventDeduplicator (in-memory)
-    → LoggingMessageProcessor
-         → telegram.message.received|edited  (JSON log)
-         → SignalParser
-         → trading.signal.detected|rejected  (JSON log)
-    → [STOP — no validation / risk / execution]
+NOT DONE (candidates for next stages)
+  - Formal RiskManager module
+  - Multi-source ingestion / multi-account
+  - HTTP API / UI / dashboard
+  - Persistent Telegram event store (dedupe is in-memory for ingest; execution
+    idempotency is durable in SQLite)
+  - Position lifecycle sync (close detection, PnL journal beyond order fields)
+  - Strategy filters on change_percent / timeframe / signal_24h_count
+    (parsed but unused for sizing or risk)
+  - Redis or other shared state for multi-instance
 
 --------------------------------------------------------------------------------
 3. STACK & TOOLING
 --------------------------------------------------------------------------------
 
-Language:     Python 3.12 only (requires-python >=3.12,<3.13)
-Package:      krypto2 (setuptools, editable install)
-MTProto:      telethon==1.45.0
-Config:       pydantic==2.11.7, pydantic-settings==2.10.1
-Proxy:        python-socks[asyncio]==2.7.1
-Dev:          pytest, pytest-asyncio, ruff, mypy (strict)
-Logging:      stdlib logging + custom JSON formatter (no structlog)
-HTTP app:     none
-DB:           none (Telethon SQLite session file only)
-Containers:   Dockerfile (python:3.12-slim, non-root), docker-compose.yml
+Language:     Python 3.12 only (requires-python = ">=3.12,<3.13")
+Package:      krypto2 (setuptools)
+Config:       pydantic 2.11.7, pydantic-settings 2.10.1
+MTProto:      telethon 1.45.0
+Socks:        python-socks[asyncio] 2.7.1
+Exchange:     pybit 5.17.0 (Bybit v5; demo=True → api-demo.bybit.com)
+Operator bot: aiogram 3.22.0 + aiohttp-socks 0.12.0
+Storage:      stdlib sqlite3 (execution journal + runtime_config)
+Lint/type:    ruff 0.12.7, mypy 1.17.0 (strict on app/)
+Tests:        pytest 8.4.1, pytest-asyncio 1.1.0
+Deploy:       Dockerfile (python:3.12-slim, non-root UID 1000), docker-compose
+Deps mirror:  requirements.txt / requirements-dev.txt (keep in sync with pyproject)
 
-Entrypoints:
-  python -m app                 # listener
-  python -m app.telegram.auth   # interactive session bootstrap
-
-Quality gate used in practice: ruff check + mypy app + pytest (unit only).
-~49 unit tests at last green run (telegram + trading parser).
-
---------------------------------------------------------------------------------
-4. ARCHITECTURE & BOUNDARIES
---------------------------------------------------------------------------------
-
-Style: Clean Architecture / dependency inversion.
-
-  app/core/                 config, logging, typed errors
-  app/domain/telegram/      TelegramMessageEvent, event_id, ports
-  app/domain/trading/       ParsedTradingSignal, enums, SignalParser port
-  app/application/telegram/ LoggingMessageProcessor, InMemoryEventDeduplicator
-  app/application/trading/  signal_parser (pure, no I/O)
-  app/infrastructure/telegram/  Telethon client/handlers/mapper/service/auth/proxy
-
-Hard rules (also in .cursor/rules):
-  - domain has no Telethon / no exchange SDKs
-  - application has no Telethon
-  - Telethon imports only under infrastructure/telegram (+ thin auth alias)
-  - Telegram infra must never import future Bybit infra
-  - handlers stay thin: map → dedupe → processor
-  - future path MUST be: Message → Parser → Validator → Risk → Executor
-  - never handler → create_order
-
-Trading domain is intentionally transport-agnostic so Telegram can be replaced
-later without rewriting signal models/parser.
+CLI entrypoints:
+  python -m app                 / krypto2
+  python -m app.telegram.auth   / krypto2-telegram-auth
+  python -m app.tools.simulate_signal / krypto2-simulate
 
 --------------------------------------------------------------------------------
-5. KEY DOMAIN MODELS
+4. ARCHITECTURE (Clean Architecture / dependency inversion)
 --------------------------------------------------------------------------------
 
-TelegramMessageEvent (frozen):
-  event_id, event_type (NEW_MESSAGE | MESSAGE_EDITED),
-  chat_id, message_id, sender_*, chat_username,
-  text, date, edit_date, received_at, has_media, reply_to_message_id
+Layers (dependency arrows point inward):
 
-  Notes:
-  - date = original Telegram timestamp (for future stale checks)
-  - received_at = local processing time
-  - text may be empty (media-only); parser simply finds no signal
+  domain/          — models, enums, ports (protocols). No Telethon, aiogram, pybit.
+  application/     — use cases: parse, validate, size, orchestrate, format notices
+  infrastructure/  — Telethon, aiogram, Bybit gateway, SQLite adapters
+  core/            — Settings, errors, logging
+  tools/           — simulate_signal CLI (uses application + infrastructure)
 
-event_id schemes:
-  new:    telegram:{chat_id}:{message_id}:new
-  edited: telegram:{chat_id}:{message_id}:edited:{edit_unix_ts}
+Hard rules (.cursor/rules):
+  - Domain MUST NOT depend on infrastructure or SDKs
+  - Application MUST NOT import telethon.*
+  - Telegram infra MUST NOT import Bybit infra
+  - Business logic MUST NOT live in transport handlers
+  - Telethon events → internal DTO before leaving infra
+  - Handlers thin: receive → map → dedupe → process → log
+  - Pipeline: Message → Parser → Validator → Risk → Executor
+    (never handler → order)
+  - No orders from Telegram/operator-bot command handlers
+  - No secrets in logs, tests, docs, .env.example
+  - Production/live trading requires explicit kill-switch
+  - Paper/demo before mainnet
 
-ParsedTradingSignal (frozen, Decimal for money-like fields):
-  exchange          # normalized "BYBIT"
-  timeframe         # e.g. 10m, 15m, 1h (pattern \d+[mh], not a fixed whitelist)
-  symbol            # ticker only, e.g. SAGA / 1000PEPE — NO USDT suffix yet
-  signal_type       # PUMP | DUMP
-  action            # SELL | BUY (logical)
-  change_percent    # Decimal
-  price_from/to     # Decimal
-  signal_24h_count  # int | None
-
-Parser contract:
-  - pure / deterministic / no network / no LLM
-  - direction ONLY from words Pump|Dump (emoji ignored; % sign not used)
-  - unicode dashes supported: - – —
-  - non-signal text → silent None
-  - Pump/Dump present but incomplete → rejection reason
-    (invalid_format | missing_price_range | invalid_percentage | …)
-  - false-positive preferred avoided over over-permissive matching
-
---------------------------------------------------------------------------------
-6. TELEGRAM / OPS BEHAVIOR
---------------------------------------------------------------------------------
-
-Session: Telethon SQLite file under TELEGRAM_SESSION_PATH (no .session suffix
-in config). Treated as credential; gitignored; Docker volume
-./data/telegram → /app/data/telegram.
-
-Reconnect: Telethon auto_reconnect=True, connection_retries=None,
-sequential_updates=True. Auth/session corruption = fail-fast.
-
-Catch-up: TELEGRAM_CATCH_UP_ENABLED (default true) at transport layer only.
-No age filtering in Telegram layer — intentional; validator must own stale
-rejection later using message.date.
-
-Edited messages: parsed and logged like new ones, with distinct event_type /
-event_id. Architecture forbids treating edit as automatic new trade.
-
-Dedupe: InMemoryEventDeduplicator (~10k LRU). Lost on process restart.
-Sufficient for current log-only stage; NOT safe alone for live trading.
-
-Readiness: file marker TELEGRAM_READY_MARKER_PATH (no HTTP health endpoint).
-
-Proxy: PROXY_URL optional; credentials never logged (only host/port/scheme).
-
-Config (env): APP_ENV, LOG_LEVEL, LOG_TELEGRAM_MESSAGE_TEXT,
-TELEGRAM_API_ID/HASH, SESSION_PATH, SOURCE_CHAT_ID|USERNAME (exactly one),
-CATCH_UP, READY_MARKER, PROXY_URL.
-
-Observability: stdout JSON events including
-  telegram.connecting|connected|disconnected|source.resolved|
-  message.received|edited|duplicate|processing_failed|auth.invalid|shutdown
-  trading.signal.detected|rejected
-Full message text only if LOG_TELEGRAM_MESSAGE_TEXT=true.
-
---------------------------------------------------------------------------------
-7. SECURITY & TRADING SAFETY (ALREADY CODIFIED)
---------------------------------------------------------------------------------
-
-- No secrets in repo; .env / sessions gitignored; .env.example placeholders
-- No auth codes / 2FA / session strings / proxy passwords in logs
-- No Bybit keys anywhere yet (and must stay out of Telegram transport)
-- Cursor rules require: paper/testnet before mainnet; live trading only via
-  explicit config; idempotency; edit ≠ second order; stale validation before
-  live trading; every future execution tied to correlation/event_id
-
---------------------------------------------------------------------------------
-8. TEST LANDSCAPE
---------------------------------------------------------------------------------
-
-Unit (default CI path): mapper, event_id, config, dedupe, proxy, client flags,
-source filter, processor logging, signal parser fixtures (real bot formats +
-edge cases), processor↔parser integration.
-
-No automated real-Telegram integration suite in default runs
-(@pytest.mark.integration reserved).
-
-No Bybit mocks yet (no executor exists).
-
---------------------------------------------------------------------------------
-9. DELIBERATE GAPS / RISKS FOR NEXT STAGES
---------------------------------------------------------------------------------
-
-1. Persistence: events/signals/dedupe are ephemeral → restart can re-process
-   catch-up messages; live trading needs durable idempotency keys.
-
-2. Instrument mapping: symbol is raw ticker; Bybit pair/category/settle coin
-   unresolved.
-
-3. Validation missing: stale age, price sanity, Pump/% sign consistency,
-   duplicate business-key (chat_id+message_id+fingerprint), exchange allowlist.
-
-4. MESSAGE_EDITED policy undefined for execution (amend vs ignore vs alert).
-
-5. Risk + sizing + mode (paper/testnet/mainnet) not modeled.
-
-6. No outbound ports for market data / account / order placement.
-
-7. Processor currently couples logging + parsing; future stages likely need
-   an explicit pipeline/orchestrator with injectable Validator/Risk/Executor.
-
-8. Health is file-based only; ops may want HTTP readiness later — optional,
-   not required for trading correctness.
-
-9. Single configured Telegram source; multi-bot/channel not designed in config.
-
---------------------------------------------------------------------------------
-10. SUGGESTED NEXT STAGE ORDER (HINTS ONLY — ARCHITECT DECIDES)
---------------------------------------------------------------------------------
-
-Typical safe sequence given current code:
-
-  1) SignalValidator (+ stale using TelegramMessageEvent.date)
-  2) Durable idempotency / event store (minimal)
-  3) Instrument resolver (symbol → Bybit instrument metadata)
-  4) Paper/testnet execution adapter behind ports
-  5) RiskManager
-  6) Mainnet behind explicit kill-switch config
-
-Do not attach Bybit create_order to Telegram handlers or directly to parser.
-
---------------------------------------------------------------------------------
-11. IMPORTANT FILE INDEX
---------------------------------------------------------------------------------
+Package map (important paths):
 
   app/main.py
-  app/core/config.py, logging.py, errors.py
-  app/domain/telegram/models.py, event_id.py, ports.py
-  app/domain/trading/models.py, enums.py, ports.py
-  app/application/telegram/message_processor.py, deduplicator.py
-  app/application/trading/signal_parser.py
-  app/infrastructure/telegram/service.py, handlers.py, mapper.py,
-      client.py, auth.py, proxy.py, session.py
-  .cursor/rules/*.mdc
-  .env.example, README.md, Dockerfile, docker-compose.yml
-  tests/unit/telegram/*, tests/unit/trading/*
+    seeds RuntimeConfigService, starts OperatorBotService (optional),
+    builds TradingSubsystem (if env TRADING_MODE demo|mainnet),
+    starts TelegramIngestionService with LoggingMessageProcessor
+
+  app/infrastructure/telegram/
+    service.py, client.py, mapper, auth.py, proxy.py, session.py
+    → TelegramMessageEvent DTO
+
+  app/application/telegram/
+    message_processor.py   — log + parse + notify + orchestrator.handle
+    deduplicator.py        — in-memory event_id dedupe
+
+  app/application/trading/
+    signal_parser.py       — text → ParsedTradingSignal
+    validator.py           — age / edited / exchange
+    instrument_resolver.py — SYMBOL → SYMBOLUSDT
+    position_sizer.py      — margin × leverage / price → qty
+    orchestrator.py        — end-to-end execution
+    bootstrap.py           — factory + Bybit preflight
+    runtime_config_service.py
+    order_link_id.py, decimal_math.py
+
+  app/infrastructure/bybit/
+    client.py (HTTP factory, recv_window=20s, max_retries=1)
+    gateway.py (TradingGateway adapter)
+
+  app/infrastructure/persistence/
+    sqlite_execution_store.py
+    sqlite_runtime_config.py
+    sqlite_files.py (writable parent check)
+
+  app/infrastructure/bot/
+    service.py, handlers.py, notifier.py
+
+  app/domain/trading/     — ParsedTradingSignal, TradeIntent, ports
+  app/domain/telegram/    — TelegramMessageEvent, event_id
+  app/domain/notifications/
+
+Runtime pipeline (when trading enabled):
+
+  Telegram
+    → Telethon (infra)
+    → mapper → TelegramMessageEvent
+    → InMemoryEventDeduplicator
+    → LoggingMessageProcessor
+         → TradingSignalParser
+         → OperatorNotifier.signal_detected (optional)
+         → TradingSignalOrchestrator.handle
+              → runtime config (mode / leverage / TP/SL / age …)
+              → SignalValidator
+              → BybitInstrumentResolver
+              → existing position check (skip)
+              → PositionSizer
+              → ExecutionStore.reserve (idempotent)
+              → BybitGateway.create_order (market)
+              → wait fill / reconcile by orderLinkId
+              → set trading-stop TP/SL from avg entry
+              → OperatorNotifier.order_update
+    → SQLite journal at EXECUTION_DB_PATH
+
+If env TRADING_MODE=disabled at process start:
+  TradingSubsystem is not built → parse + log (+ bot notify) only; no orders.
 
 --------------------------------------------------------------------------------
-END — ready for next-stage architecture planning
+5. SIGNAL MESSAGE FORMAT (what the parser expects)
+--------------------------------------------------------------------------------
+
+Source: external Telegram text (often with emoji; emoji ignored).
+
+Canonical shape (case-insensitive; Unicode dashes accepted):
+
+  ByBit – 10m – XDP
+  Pump: 32.44% (0.0197-0.02609)
+  Signal 24h: 1
+
+Or dump example:
+
+  ByBit – 10m – BTC
+  Dump: 5% (95000-90250)
+  Signal 24h: 1
+
+Regex contract (signal_parser.py):
+  Header:  bybit – <timeframe like 10m|1h> – <SYMBOL>
+  Line:    pump|dump: <pct>% (<price_from>-<price_to>)
+  Optional: signal 24h: <int>
+
+Parsed fields → ParsedTradingSignal:
+  exchange          always "BYBIT"
+  timeframe         e.g. "10m"
+  symbol            e.g. "XDP" (no USDT; resolver adds USDT)
+  signal_type       PUMP | DUMP
+  action            SELL | BUY
+  change_percent    Decimal (sign as in text; dump may be stored negative in simulate)
+  price_from/to     Decimal — USED ONLY for logging/notice; NOT for order sizing
+  signal_24h_count  optional int — logged; NOT used for risk/sizing today
+
+Rejection reasons (incomplete pump/dump text):
+  invalid_format, missing_symbol, missing_price_range, invalid_percentage, …
+
+Non-signal ordinary chat text → silently ignored (empty parse result).
+
+--------------------------------------------------------------------------------
+6. EXECUTION POLICY (current behavior)
+--------------------------------------------------------------------------------
+
+Modes:
+  disabled — no Bybit private session at boot if env says disabled
+  demo     — Bybit Demo Trading (api-demo.bybit.com). NOT api-testnet
+  mainnet  — only if ALLOW_MAINNET_TRADING=true
+  testnet  — rejected at config load ("use demo")
+
+Sizing:
+  target_margin   = equity * TRADE_MARGIN_PCT / 100
+  target_notional ≈ target_margin * BYBIT_LEVERAGE
+  qty = floor(notional / sizing_price) to qtyStep
+  If qty < minOrderQty or notional < minNotional → REJECT (never bump qty up)
+
+Sizing price: ORDER_SIZING_PRICE = lastPrice | markPrice (exchange ticker)
+
+TP/SL (from actual avg entry after fill):
+  LONG:  TP = entry * (1 + TAKE_PROFIT_PCT/100)
+         SL = entry * (1 - STOP_LOSS_PCT/100)
+  SHORT: opposite
+  Rounded to tickSize
+  Provisional TP/SL may be attached on create; set_trading_stop may return
+  Bybit 34040 "not modified" → treated as success
+
+Skips / rejects:
+  trading_disabled
+  mainnet_not_allowed
+  edited_message (if EXECUTE_EDITED_MESSAGES=false)
+  stale_signal (message date older than MAX_SIGNAL_AGE_SECONDS)
+  existing_position (EXISTING_POSITION_POLICY=skip — only policy implemented)
+  instrument constraints / insufficient balance / below min notional
+
+Idempotency:
+  event_id stable from chat_id + message_id + event_type
+  orderLinkId = "k2-" + sha256(event_id) truncated
+  SQLite reserve before create; duplicate → reconcile, never second submit
+  max_retries=1 on pybit HTTP to avoid double POST on timeout
+  recv_window = 20000 ms (clock skew tolerance)
+
+--------------------------------------------------------------------------------
+7. OPERATOR BOT
+--------------------------------------------------------------------------------
+
+Optional. Same process as python -m app when TELEGRAM_BOT_TOKEN set.
+Does NOT read the signal chat. Admin-only (TELEGRAM_BOT_ADMIN_IDS).
+
+Commands:
+  /start  — short HTML: commands + current setting values (Russian labels)
+  /help   — full Russian how-to + per-key descriptions + /set examples
+  /config — current values + descriptions
+  /set KEY VALUE — update runtime_config in SQLite
+
+Runtime-editable keys (stored in EXECUTION_DB_PATH table runtime_config):
+  TRADING_MODE, BYBIT_LEVERAGE, TRADE_MARGIN_PCT, ORDER_SIZING_PRICE,
+  TAKE_PROFIT_ENABLED, TAKE_PROFIT_PCT,
+  STOP_LOSS_ENABLED, STOP_LOSS_PCT,
+  MAX_SIGNAL_AGE_SECONDS, EXECUTE_EDITED_MESSAGES
+
+Seeded from .env on first start; DB wins afterward.
+Changes apply to next signal without restart.
+Bybit session still only built if env TRADING_MODE was demo|mainnet at boot.
+
+NOT editable via bot (env only):
+  TELEGRAM_*, PROXY_URL, BYBIT_API_KEY/SECRET, ALLOW_MAINNET_TRADING,
+  BYBIT_CATEGORY, TAKE_PROFIT_TRIGGER_BY, ORDER_FILL_TIMEOUT_SEC,
+  EXISTING_POSITION_POLICY, EXECUTION_DB_PATH, bot token/admin ids
+
+--------------------------------------------------------------------------------
+8. SCRIPTS / HOW TO RUN
+--------------------------------------------------------------------------------
+
+A) Create Telegram user session (interactive phone/code/2FA):
+     python -m app.telegram.auth
+   Session file: TELEGRAM_SESSION_PATH + ".session"
+   Default: data/telegram/user.session
+
+B) Main runtime (ingest + optional trading + optional operator bot):
+     python -m app
+   Docker:
+     docker compose up --build
+   Volumes: ./data/telegram, ./data/trading
+   Host data dirs must be writable by container UID 1000 (or APP_UID/APP_GID)
+
+C) Simulate signals without Telegram (Demo only):
+     python -m app.tools.simulate_signal --symbol BTC --side dump
+     python -m app.tools.simulate_signal --file data/trading/test_signals.json
+     python -m app.tools.simulate_signal --file ... --dry-run
+   Requires TRADING_MODE=demo. --dry-run prints/parses/connects for price but
+   does not place orders. 1s pause between batch rows. Failures continue;
+   non-zero exit if any failed. Synthetic chat_id = -1000000000001.
+
+D) Quality gate:
+     ruff check app tests
+     mypy app
+     pytest
+
+--------------------------------------------------------------------------------
+9. SETTINGS REFERENCE (.env)
+--------------------------------------------------------------------------------
+
+--- App / logging ---
+APP_ENV=development
+LOG_LEVEL=INFO
+LOG_TELEGRAM_MESSAGE_TEXT=false
+
+--- Telegram MTProto ---
+TELEGRAM_API_ID=
+TELEGRAM_API_HASH=
+TELEGRAM_SESSION_PATH=data/telegram/user
+TELEGRAM_SOURCE_CHAT_ID=          # XOR with USERNAME — exactly one required
+TELEGRAM_SOURCE_USERNAME=
+TELEGRAM_CATCH_UP_ENABLED=true
+TELEGRAM_READY_MARKER_PATH=data/telegram/.ready
+PROXY_URL=                        # http|https|socks4|socks5|socks5h
+
+--- Trading mode ---
+TRADING_MODE=disabled|demo|mainnet
+ALLOW_MAINNET_TRADING=false       # kill-switch for mainnet
+
+--- Bybit credentials / instrument ---
+BYBIT_API_KEY=
+BYBIT_API_SECRET=
+BYBIT_CATEGORY=linear             # fixed to linear in Settings
+BYBIT_SETTLE_COIN=USDT            # fixed to USDT
+BYBIT_LEVERAGE=5                  # also runtime-editable
+BYBIT_EXPECTED_MARGIN_MODE=       # optional check; never auto-switch
+
+--- Sizing / TP / SL / policy ---
+TRADE_MARGIN_PCT=1.0              # % of equity as target initial margin
+ORDER_SIZING_PRICE=lastPrice|markPrice
+TAKE_PROFIT_ENABLED=true
+TAKE_PROFIT_PCT=2.0               # % of entry price, not account risk %
+TAKE_PROFIT_TRIGGER_BY=LastPrice  # env only
+STOP_LOSS_ENABLED=true
+STOP_LOSS_PCT=3
+MAX_SIGNAL_AGE_SECONDS=30
+EXECUTE_EDITED_MESSAGES=false
+EXISTING_POSITION_POLICY=skip     # only skip implemented; env only
+
+--- Persistence ---
+EXECUTION_DB_PATH=data/trading/executions.sqlite3
+ORDER_FILL_TIMEOUT_SEC=30
+
+--- Operator bot ---
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_BOT_ADMIN_IDS=           # comma-separated Telegram user ids
+
+Blank bool env values (KEY=) keep field defaults.
+
+--------------------------------------------------------------------------------
+10. DATA ON DISK
+--------------------------------------------------------------------------------
+
+data/telegram/user.session     — Telethon credential (gitignored)
+data/telegram/.ready           — Docker healthcheck marker
+data/trading/executions.sqlite3
+  tables: execution journal + runtime_config
+data/trading/test_signals.json — fixture for simulate_signal --file
+
+--------------------------------------------------------------------------------
+11. SAFETY / SECURITY CONSTRAINTS FOR NEXT DESIGN
+--------------------------------------------------------------------------------
+
+MUST keep:
+  - No order execution from Telegram or operator-bot command handlers
+  - Idempotent execution (duplicate Telegram events ≠ duplicate orders)
+  - Edited messages do not auto-create a second order by default
+  - Stale signal check before live trading
+  - Demo before mainnet; mainnet only with explicit ALLOW_MAINNET_TRADING
+  - Secrets never in logs, exception messages, tests, docs, commits
+  - Domain/application free of Telethon/aiogram/pybit imports
+  - Correlation id on execution path
+
+Known ops pitfalls already encountered:
+  - Demo keys ≠ mainnet ≠ testnet keys (retCode 10003)
+  - Clock skew → Bybit 10002; recv_window widened to 20s
+  - Docker volume owned by root → SQLite "unable to open database file"
+  - PROXY_URL=127.0.0.1 inside container ≠ host proxy
+  - Read-only API key → connect works, orders fail
+  - --dry-run on simulate places no orders (by design)
+
+--------------------------------------------------------------------------------
+12. SUGGESTED NEXT-STAGE QUESTIONS FOR ARCHITECT
+--------------------------------------------------------------------------------
+
+  1. RiskManager: max concurrent positions, per-symbol cooldown, daily loss,
+     max notional, filters on change_percent / timeframe / signal_24h?
+  2. Should message price range / % move influence size or only filters?
+  3. Position lifecycle: sync closes, trailing SL, scale-out, hedge bans?
+  4. Multi-instance / HA: move ingest dedupe to durable store?
+  5. Operator UX: confirmations, paper ledger, PnL reports?
+  6. When env TRADING_MODE=disabled at boot, should /set demo warm-start gateway?
+  7. EXISTING_POSITION_POLICY beyond skip (add / reverse / ignore)?
+  8. Formal paper mode separate from Bybit Demo Trading?
+
+================================================================================
+END OF HANDOFF
 ================================================================================

@@ -8,7 +8,7 @@ from app.application.trading.signal_parser import parse_trading_signal
 from app.domain.trading.enums import TradeAction, TradingSignalType
 
 
-def test_saga_pump_with_emoji() -> None:
+def test_saga_red_pump_is_short() -> None:
     text = "⚫ ByBit – 10m – SAGA\n🔴 Pump: 26.93% (0.071523-0.090782)\n📡 Signal 24h: 1"
     result = parse_trading_signal(text)
     assert result.signal is not None
@@ -16,7 +16,7 @@ def test_saga_pump_with_emoji() -> None:
     assert signal.exchange == "BYBIT"
     assert signal.timeframe == "10m"
     assert signal.symbol == "SAGA"
-    assert signal.signal_type is TradingSignalType.PUMP
+    assert signal.signal_type is TradingSignalType.SHORT
     assert signal.action is TradeAction.SELL
     assert signal.change_percent == Decimal("26.93")
     assert signal.price_from == Decimal("0.071523")
@@ -50,24 +50,24 @@ def test_br_dump() -> None:
     assert signal.price_to == Decimal("0.98875")
 
 
-def test_lyn_pump_green_emoji() -> None:
+def test_lyn_green_pump_is_long() -> None:
     text = "⚫ ByBit – 10m – LYN\n🟢 Pump: 21.2% (0.0425-0.05151)\n📡 Signal 24h: 1"
     signal = parse_trading_signal(text).signal
     assert signal is not None
     assert signal.symbol == "LYN"
     assert signal.signal_type is TradingSignalType.PUMP
-    assert signal.action is TradeAction.SELL
+    assert signal.action is TradeAction.BUY
     assert signal.change_percent == Decimal("21.2")
     assert signal.price_from == Decimal("0.0425")
     assert signal.price_to == Decimal("0.05151")
 
 
-def test_without_emoji() -> None:
+def test_without_emoji_defaults_to_short() -> None:
     text = "ByBit - 10m - BTC\nPump: 20% (1.2-1.44)\nSignal 24h: 2"
     signal = parse_trading_signal(text).signal
     assert signal is not None
     assert signal.symbol == "BTC"
-    assert signal.signal_type is TradingSignalType.PUMP
+    assert signal.signal_type is TradingSignalType.SHORT
     assert signal.action is TradeAction.SELL
     assert signal.change_percent == Decimal("20")
     assert signal.price_from == Decimal("1.2")
@@ -75,15 +75,25 @@ def test_without_emoji() -> None:
     assert signal.signal_24h_count == 2
 
 
-def test_lowercase_pump() -> None:
+def test_lowercase_pump_defaults_to_short() -> None:
     text = "ByBit – 10m – BTC\npump: 20% (1-1.2)\nSignal 24h: 1"
     signal = parse_trading_signal(text).signal
     assert signal is not None
-    assert signal.signal_type is TradingSignalType.PUMP
+    assert signal.signal_type is TradingSignalType.SHORT
     assert signal.action is TradeAction.SELL
     assert signal.change_percent == Decimal("20")
     assert signal.price_from == Decimal("1")
     assert signal.price_to == Decimal("1.2")
+
+
+def test_cyrillic_timeframe() -> None:
+    text = "⚫ ByBit – 30м – RSR\n🔴 Pump: 49.27% (0.0016619-0.0024808)\n🔊 Signal 24h: 1"
+    signal = parse_trading_signal(text).signal
+    assert signal is not None
+    assert signal.timeframe == "30m"
+    assert signal.symbol == "RSR"
+    assert signal.signal_type is TradingSignalType.SHORT
+    assert signal.action is TradeAction.SELL
 
 
 def test_extra_whitespace() -> None:

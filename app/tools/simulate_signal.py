@@ -81,11 +81,13 @@ def normalize_timeframe(raw: str) -> str:
 
 def parse_side(raw: str) -> TradingSignalType:
     key = raw.strip().lower()
-    if key == "pump":
+    if key in {"pump", "long"}:
         return TradingSignalType.PUMP
+    if key == "short":
+        return TradingSignalType.SHORT
     if key == "dump":
         return TradingSignalType.DUMP
-    msg = "side must be pump or dump"
+    msg = "side must be pump, short, or dump"
     raise ConfigurationError(msg)
 
 
@@ -135,6 +137,9 @@ def format_bot_message(
 ) -> str:
     """Text in the same shape as pump-screener notifications."""
     if signal_type is TradingSignalType.PUMP:
+        emoji = "🟢"
+        label = "Pump"
+    elif signal_type is TradingSignalType.SHORT:
         emoji = "🔴"
         label = "Pump"
     else:
@@ -327,7 +332,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="JSON file of signals, e.g. data/trading/test_signals.json",
     )
     parser.add_argument("--symbol", help="Ticker, e.g. BTC or ETHUSDT")
-    parser.add_argument("--side", choices=("pump", "dump"))
+    parser.add_argument("--side", choices=("pump", "short", "dump", "long"))
     parser.add_argument(
         "--change",
         help="Move size in percent, without sign (default: 5). Dump is stored as negative.",

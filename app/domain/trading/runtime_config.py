@@ -23,6 +23,10 @@ class RuntimeTradingConfig:
     stop_loss_pct: Decimal | None
     max_signal_age_seconds: int
     execute_edited_messages: bool
+    react_dump: bool
+    react_pump: bool
+    react_short: bool
+    orders_enabled: bool
 
 
 class RuntimeConfigSource(Protocol):

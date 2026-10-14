@@ -35,6 +35,7 @@ from app.domain.trading.enums import (
     PositionDirection,
     TradeAction,
     TradingMode,
+    TradingSignalType,
 )
 from app.domain.trading.models import (
     ParsedTradingSignal,
@@ -42,7 +43,7 @@ from app.domain.trading.models import (
     TradeIntent,
 )
 from app.domain.trading.ports import ExecutionStore, TradingGateway
-from app.domain.trading.runtime_config import RuntimeConfigSource
+from app.domain.trading.runtime_config import RuntimeConfigSource, RuntimeTradingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,43 @@ class TradingSignalOrchestrator:
                 "trading.signal.skipped",
                 "Trading signal skipped because runtime mode is disabled",
                 reason="trading_disabled",
+                **base_fields,
+            )
+            return
+        if not runtime.orders_enabled:
+            await self._announce(
+                OrderNotice(
+                    symbol=signal.symbol,
+                    kind=OrderUpdateKind.SKIPPED,
+                    side=signal.action.value,
+                    reason="orders_disabled",
+                )
+            )
+            log_event(
+                logger,
+                logging.INFO,
+                "trading.signal.skipped",
+                "Trading signal skipped because order placement is disabled",
+                reason="orders_disabled",
+                **base_fields,
+            )
+            return
+        if not self._reacts_to(signal.signal_type, runtime):
+            reason = f"signal_disabled_{signal.signal_type.value.lower()}"
+            await self._announce(
+                OrderNotice(
+                    symbol=signal.symbol,
+                    kind=OrderUpdateKind.SKIPPED,
+                    side=signal.action.value,
+                    reason=reason,
+                )
+            )
+            log_event(
+                logger,
+                logging.INFO,
+                "trading.signal.skipped",
+                "Trading signal skipped by reaction toggle",
+                reason=reason,
                 **base_fields,
             )
             return
@@ -750,6 +788,16 @@ class TradingSignalOrchestrator:
                 "Order notification failed",
                 error_type=type(exc).__name__,
             )
+
+    @staticmethod
+    def _reacts_to(signal_type: TradingSignalType, runtime: RuntimeTradingConfig) -> bool:
+        if signal_type is TradingSignalType.DUMP:
+            return runtime.react_dump
+        if signal_type is TradingSignalType.PUMP:
+            return runtime.react_pump
+        if signal_type is TradingSignalType.SHORT:
+            return runtime.react_short
+        return False
 
     @staticmethod
     def _map_side(action: TradeAction) -> tuple[OrderSide, PositionDirection]:

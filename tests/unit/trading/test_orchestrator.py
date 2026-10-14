@@ -78,7 +78,9 @@ def _signal(*, action: TradeAction = TradeAction.BUY, symbol: str = "SAGA") -> P
         exchange="BYBIT",
         timeframe="10m",
         symbol=symbol,
-        signal_type=TradingSignalType.DUMP if action is TradeAction.BUY else TradingSignalType.PUMP,
+        signal_type=(
+            TradingSignalType.DUMP if action is TradeAction.BUY else TradingSignalType.SHORT
+        ),
         action=action,
         change_percent=Decimal("10"),
         price_from=Decimal("1"),
@@ -118,6 +120,32 @@ async def test_pump_opens_short(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     assert gw.placed[0]["side"] is OrderSide.SELL
     tp = gw.trading_stops[0][1].take_profit_price
     assert tp == Decimal("0.4900")
+
+
+@pytest.mark.asyncio
+async def test_orders_disabled_skips(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    settings = make_settings(monkeypatch, tmp_path, ORDERS_ENABLED="false")
+    gw = FakeTradingGateway()
+    gw.add_linear_usdt("SAGAUSDT")
+    orch = TradingSignalOrchestrator(
+        settings, gateway=gw, store=SqliteExecutionStore(settings.execution_db_path)
+    )
+    await orch.handle(_event(event_id="telegram:1:orders-off:new"), _signal())
+    assert gw.placed == []
+
+
+@pytest.mark.asyncio
+async def test_react_dump_off_skips_dump(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = make_settings(monkeypatch, tmp_path, REACT_DUMP="false")
+    gw = FakeTradingGateway()
+    gw.add_linear_usdt("SAGAUSDT")
+    orch = TradingSignalOrchestrator(
+        settings, gateway=gw, store=SqliteExecutionStore(settings.execution_db_path)
+    )
+    await orch.handle(_event(event_id="telegram:1:dump-off:new"), _signal())
+    assert gw.placed == []
 
 
 @pytest.mark.asyncio

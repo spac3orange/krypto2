@@ -64,9 +64,27 @@ def test_pump_message_roundtrip() -> None:
     assert signal is not None
     assert signal.symbol == "BTC"
     assert signal.signal_type is TradingSignalType.PUMP
-    assert signal.action is TradeAction.SELL
+    assert signal.action is TradeAction.BUY
     assert signal.change_percent == Decimal("10")
     assert signal.price_to == Decimal("110")
+
+
+def test_short_message_roundtrip() -> None:
+    change = signed_change(TradingSignalType.SHORT, Decimal("10"))
+    price_from, price_to = price_bounds(Decimal("110"), change)
+    text = format_bot_message(
+        symbol="BTC",
+        timeframe="10m",
+        signal_type=TradingSignalType.SHORT,
+        change_percent=change,
+        price_from=price_from,
+        price_to=price_to,
+    )
+    signal = parse_trading_signal(text).signal
+    assert signal is not None
+    assert signal.signal_type is TradingSignalType.SHORT
+    assert signal.action is TradeAction.SELL
+    assert "🔴" in text
 
 
 def test_dump_message_roundtrip() -> None:

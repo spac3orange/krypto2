@@ -12,12 +12,13 @@ from app.domain.trading.models import ParsedTradingSignal
 # Unicode dash variants commonly used in Telegram/typographic text.
 _DASH = r"[-–—−]"
 
+# Latin m/h and Cyrillic м/ч (as in «10м» from pump_screener_bot).
 _HEADER_RE = re.compile(
-    rf"(?i)\bbybit\b\s*{_DASH}\s*(\d+[mh])\s*{_DASH}\s*([A-Za-z0-9]+)\b",
+    rf"(?i)\bbybit\b\s*{_DASH}\s*(\d+[mhмч])\s*{_DASH}\s*([A-Za-z0-9]+)\b",
 )
 
 _SIGNAL_LINE_RE = re.compile(
-    rf"(?i)\b(pump|dump)\s*:\s*"
+    rf"(?i)([🟢🔴🔻])?\s*(pump|dump)\s*:\s*"
     rf"(-?\d+(?:\.\d+)?)\s*%\s*"
     rf"\(\s*(-?\d+(?:\.\d+)?)\s*{_DASH}\s*(-?\d+(?:\.\d+)?)\s*\)",
 )
@@ -28,10 +29,14 @@ _SIGNAL_24H_RE = re.compile(
 
 _PUMP_OR_DUMP_WORD_RE = re.compile(r"(?i)\b(pump|dump)\b")
 
+# Matches screener labels: 🟢 Лонг, 🔴 Шорт, 🔻 Дамп.
 _ACTION_BY_TYPE = {
-    TradingSignalType.PUMP: TradeAction.SELL,
+    TradingSignalType.PUMP: TradeAction.BUY,
+    TradingSignalType.SHORT: TradeAction.SELL,
     TradingSignalType.DUMP: TradeAction.BUY,
 }
+
+_TIMEFRAME_CYRILLIC = str.maketrans({"м": "m", "ч": "h", "М": "m", "Ч": "h"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +53,24 @@ class SignalParseResult:
     @property
     def is_rejected(self) -> bool:
         return self.rejection_reason is not None
+
+
+def _classify_signal_type(*, word: str, emoji: str | None) -> TradingSignalType:
+    """Map screener emoji + Pump/Dump word to an internal signal type."""
+    kind = word.upper()
+    if kind == "DUMP":
+        return TradingSignalType.DUMP
+    # Pump line: green = long (PUMP), red = short (SHORT).
+    if emoji == "🟢":
+        return TradingSignalType.PUMP
+    if emoji == "🔴":
+        return TradingSignalType.SHORT
+    # No emoji: treat as short so plain "Pump:" keeps sell behaviour.
+    return TradingSignalType.SHORT
+
+
+def _normalize_timeframe(raw: str) -> str:
+    return raw.translate(_TIMEFRAME_CYRILLIC).lower()
 
 
 def parse_trading_signal(text: str) -> SignalParseResult:
@@ -67,14 +90,13 @@ def parse_trading_signal(text: str) -> SignalParseResult:
     if header is None:
         return SignalParseResult(rejection_reason="invalid_format")
 
-    timeframe = header.group(1).lower()
+    timeframe = _normalize_timeframe(header.group(1))
     symbol = header.group(2).upper()
     if not symbol:
         return SignalParseResult(rejection_reason="missing_symbol")
 
     signal_match = _SIGNAL_LINE_RE.search(text)
     if signal_match is None:
-        # Pump/Dump word exists but percentage/price range could not be parsed.
         if re.search(r"(?i)\b(pump|dump)\s*:", text) and not re.search(
             r"\(\s*-?\d",
             text,
@@ -84,14 +106,14 @@ def parse_trading_signal(text: str) -> SignalParseResult:
             return SignalParseResult(rejection_reason="invalid_percentage")
         return SignalParseResult(rejection_reason="invalid_format")
 
-    raw_type = signal_match.group(1).upper()
-    signal_type = TradingSignalType(raw_type)
+    emoji = signal_match.group(1)
+    signal_type = _classify_signal_type(word=signal_match.group(2), emoji=emoji)
     action = _ACTION_BY_TYPE[signal_type]
 
     try:
-        change_percent = Decimal(signal_match.group(2))
-        price_from = Decimal(signal_match.group(3))
-        price_to = Decimal(signal_match.group(4))
+        change_percent = Decimal(signal_match.group(3))
+        price_from = Decimal(signal_match.group(4))
+        price_to = Decimal(signal_match.group(5))
     except InvalidOperation:
         return SignalParseResult(rejection_reason="invalid_percentage")
 

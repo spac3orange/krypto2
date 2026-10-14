@@ -12,6 +12,18 @@ from app.domain.trading.runtime_config import RuntimeConfigStore, RuntimeTrading
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 
+_BOOL_KEYS = frozenset(
+    {
+        "TAKE_PROFIT_ENABLED",
+        "STOP_LOSS_ENABLED",
+        "EXECUTE_EDITED_MESSAGES",
+        "REACT_DUMP",
+        "REACT_PUMP",
+        "REACT_SHORT",
+        "ORDERS_ENABLED",
+    }
+)
+
 _KEYS = (
     "TRADING_MODE",
     "BYBIT_LEVERAGE",
@@ -23,6 +35,10 @@ _KEYS = (
     "STOP_LOSS_PCT",
     "MAX_SIGNAL_AGE_SECONDS",
     "EXECUTE_EDITED_MESSAGES",
+    "REACT_DUMP",
+    "REACT_PUMP",
+    "REACT_SHORT",
+    "ORDERS_ENABLED",
 )
 
 
@@ -40,6 +56,10 @@ def defaults_from_settings(settings: Settings) -> dict[str, str]:
         "STOP_LOSS_PCT": stop,
         "MAX_SIGNAL_AGE_SECONDS": str(settings.max_signal_age_seconds),
         "EXECUTE_EDITED_MESSAGES": _bool_text(settings.execute_edited_messages),
+        "REACT_DUMP": _bool_text(settings.react_dump),
+        "REACT_PUMP": _bool_text(settings.react_pump),
+        "REACT_SHORT": _bool_text(settings.react_short),
+        "ORDERS_ENABLED": _bool_text(settings.orders_enabled),
     }
 
 
@@ -102,6 +122,10 @@ def parse_stored_config(values: dict[str, str]) -> RuntimeTradingConfig:
         stop_loss_pct=stop_pct,
         max_signal_age_seconds=int(age_raw),
         execute_edited_messages=_parse_bool(values["EXECUTE_EDITED_MESSAGES"]),
+        react_dump=_parse_bool(values["REACT_DUMP"]),
+        react_pump=_parse_bool(values["REACT_PUMP"]),
+        react_short=_parse_bool(values["REACT_SHORT"]),
+        orders_enabled=_parse_bool(values["ORDERS_ENABLED"]),
     )
 
 
@@ -199,7 +223,7 @@ def _apply_field(
         except ValueError as exc:
             msg = "ORDER_SIZING_PRICE must be lastPrice or markPrice"
             raise ConfigurationError(msg) from exc
-    if key in {"TAKE_PROFIT_ENABLED", "STOP_LOSS_ENABLED", "EXECUTE_EDITED_MESSAGES"}:
+    if key in _BOOL_KEYS:
         enabled = _parse_bool(raw_value)
         if key == "STOP_LOSS_ENABLED" and enabled and current.stop_loss_pct is None:
             msg = "Set STOP_LOSS_PCT before enabling the stop"

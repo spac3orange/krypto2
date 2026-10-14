@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from app.application.notifications.format import (
+    bybit_usdt_trade_url,
     config_help_text,
     config_start_text,
     format_order_notice,
@@ -96,11 +97,17 @@ def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) ->
     assert "<b>Режим торговли:</b> <code>demo</code>" in start
     assert "<b>Плечо:</b> <code>5</code>" in start
     assert "<b>Стоп, % от цены входа:</b> <code>3%</code>" in start
-    assert "Как работать" not in start
-    assert "Лонг закрывается" not in start
+    assert "python -m app" not in start
+    assert ".env" not in start
     assert "sqlite" not in start.lower()
-    assert "<b><u>Как работать</u></b>" in help_text
-    assert "python -m app" in help_text
+    assert "<b><u>Сигналы @pump_screener_bot</u></b>" in help_text
+    assert "Dump" in help_text and "лонг" in help_text
+    assert "REACT_SHORT" in help_text
+    assert "ORDERS_ENABLED" in help_text
+    assert "<b>Реакция на Dump:</b> <code>вкл</code>" in start
+    assert "python -m app" not in help_text
+    assert ".env" not in help_text
+    assert "ALLOW_MAINNET" not in help_text
     assert "<b>Плечо</b>" in help_text
     assert "<i>Пример:</i> /set BYBIT_LEVERAGE 5" in help_text
     assert "sqlite" not in help_text.lower()
@@ -117,23 +124,30 @@ def test_config_view_describes_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "sqlite" not in text.lower()
 
 
-def test_notices_do_not_include_secrets() -> None:
+def test_bybit_trade_url_appends_usdt() -> None:
+    assert bybit_usdt_trade_url("BTR") == "https://www.bybit.com/trade/usdt/BTRUSDT"
+    assert bybit_usdt_trade_url("btcusdt") == "https://www.bybit.com/trade/usdt/BTCUSDT"
+
+
+def test_notices_link_symbol_to_bybit() -> None:
     secret = "super-secret-bybit-key"
     signal = format_signal_notice(
         SignalNotice(
-            symbol="BTC",
+            symbol="BTR",
             signal_type="DUMP",
             action="BUY",
             timeframe="10m",
-            change_percent="-5",
-            price_from="1",
-            price_to="0.95",
+            change_percent="-15.08",
+            price_from="0.05094",
+            price_to="0.04326",
         )
     )
     order = format_order_notice(
-        OrderNotice(symbol="BTC", kind=OrderUpdateKind.SUBMITTED, side="Buy", qty="0.01")
+        OrderNotice(symbol="BTR", kind=OrderUpdateKind.SUBMITTED, side="Buy", qty="0.01")
     )
-    assert "BTC" in signal
+    link = '<a href="https://www.bybit.com/trade/usdt/BTRUSDT">BTR</a>'
+    assert link in signal
+    assert link in order
     assert "Ордер отправлен" in order
     assert secret not in signal
     assert secret not in order

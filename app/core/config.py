@@ -115,6 +115,10 @@ class Settings(BaseSettings):
         default=False,
         alias="EXECUTE_EDITED_MESSAGES",
     )
+    react_dump: bool = Field(default=True, alias="REACT_DUMP")
+    react_pump: bool = Field(default=True, alias="REACT_PUMP")
+    react_short: bool = Field(default=True, alias="REACT_SHORT")
+    orders_enabled: bool = Field(default=True, alias="ORDERS_ENABLED")
     existing_position_policy: ExistingPositionPolicy = Field(
         default=ExistingPositionPolicy.SKIP,
         alias="EXISTING_POSITION_POLICY",
@@ -140,6 +144,10 @@ class Settings(BaseSettings):
         "take_profit_enabled",
         "stop_loss_enabled",
         "execute_edited_messages",
+        "react_dump",
+        "react_pump",
+        "react_short",
+        "orders_enabled",
         mode="before",
     )
     @classmethod

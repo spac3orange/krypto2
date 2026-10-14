@@ -1,0 +1,2 @@
+# Only dependency for this package. Pin to match krypto2.
+pybit==5.17.0

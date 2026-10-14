@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from aiogram import Bot
+from aiogram.enums import ParseMode
 
 from app.application.notifications.format import format_order_notice, format_signal_notice
 from app.core.logging import log_event
@@ -29,7 +30,7 @@ class AiogramOperatorNotifier:
     async def _broadcast(self, text: str) -> None:
         for chat_id in self._chat_ids:
             try:
-                await self._bot.send_message(chat_id, text)
+                await self._bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
             except Exception as exc:  # noqa: BLE001 — notification must not stop trading
                 log_event(
                     logger,

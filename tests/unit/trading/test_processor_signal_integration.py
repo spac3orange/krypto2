@@ -41,7 +41,7 @@ async def test_processor_logs_detected_signal(caplog: pytest.LogCaptureFixture) 
     record = detected[0]
     assert record.exchange == "BYBIT"
     assert record.symbol == "SAGA"
-    assert record.signal_type == "PUMP"
+    assert record.signal_type == "SHORT"
     assert record.action == "SELL"
     assert record.change_percent == "26.93"
     assert record.price_from == "0.071523"

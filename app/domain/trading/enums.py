@@ -6,10 +6,11 @@ from enum import StrEnum
 
 
 class TradingSignalType(StrEnum):
-    """Observed market move type from the signal source."""
+    """Signal category from @pump_screener_bot (by emoji / word)."""
 
-    PUMP = "PUMP"
-    DUMP = "DUMP"
+    PUMP = "PUMP"  # 🟢 Pump → long alert
+    SHORT = "SHORT"  # 🔴 Pump → short alert
+    DUMP = "DUMP"  # 🔻 Dump
 
 
 class TradeAction(StrEnum):
