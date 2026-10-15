@@ -79,6 +79,23 @@ class PositionSnapshot:
     side: str | None
     avg_price: Decimal | None
     leverage: Decimal | None
+    position_im: Decimal | None = None
+    unrealised_pnl: Decimal | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class OpenOrderSnapshot:
+    """Working (open) order on the exchange."""
+
+    symbol: str
+    side: str
+    order_type: str
+    qty: Decimal
+    leaves_qty: Decimal
+    price: Decimal | None
+    order_status: str
+    reduce_only: bool
+    order_link_id: str
 
 
 @dataclass(frozen=True, slots=True)

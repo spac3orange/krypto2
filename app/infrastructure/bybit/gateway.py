@@ -22,6 +22,7 @@ from app.domain.trading.enums import OrderSide
 from app.domain.trading.models import (
     AccountSnapshot,
     MarketTicker,
+    OpenOrderSnapshot,
     OrderExecution,
     OrderSubmission,
     PositionSnapshot,
@@ -36,6 +37,14 @@ def _d(value: object, default: str = "0") -> Decimal:
     if value is None or value == "":
         return Decimal(default)
     return Decimal(str(value))
+
+
+def _as_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes"}
 
 
 class BybitGateway:
@@ -258,13 +267,72 @@ class BybitGateway:
                 avg_price=None,
                 leverage=None,
             )
-        row = rows[0]
+        return self._position_from_row(rows[0], fallback_symbol=symbol)
+
+    async def list_open_positions(self) -> list[PositionSnapshot]:
+        result = await self._call(
+            self._http.get_positions,
+            category=self._category,
+            settleCoin=self._settle_coin,
+            limit=200,
+        )
+        rows = (result.get("result") or {}).get("list") or []
+        positions: list[PositionSnapshot] = []
+        for row in rows:
+            position = self._position_from_row(row)
+            if position.size != 0:
+                positions.append(position)
+        return positions
+
+    async def list_open_orders(self) -> list[OpenOrderSnapshot]:
+        result = await self._call(
+            self._http.get_open_orders,
+            category=self._category,
+            settleCoin=self._settle_coin,
+            limit=50,
+        )
+        rows = (result.get("result") or {}).get("list") or []
+        orders: list[OpenOrderSnapshot] = []
+        for row in rows:
+            orders.append(
+                OpenOrderSnapshot(
+                    symbol=str(row.get("symbol") or ""),
+                    side=str(row.get("side") or ""),
+                    order_type=str(row.get("orderType") or ""),
+                    qty=_d(row.get("qty")),
+                    leaves_qty=_d(row.get("leavesQty")),
+                    price=(
+                        _d(row.get("price"))
+                        if row.get("price") not in (None, "", "0")
+                        else None
+                    ),
+                    order_status=str(row.get("orderStatus") or ""),
+                    reduce_only=_as_bool(row.get("reduceOnly")),
+                    order_link_id=str(row.get("orderLinkId") or ""),
+                )
+            )
+        return orders
+
+    def _position_from_row(
+        self,
+        row: dict[str, Any],
+        *,
+        fallback_symbol: str = "",
+    ) -> PositionSnapshot:
         return PositionSnapshot(
-            symbol=symbol,
+            symbol=str(row.get("symbol") or fallback_symbol),
             size=_d(row.get("size")),
             side=str(row.get("side") or "") or None,
             avg_price=_d(row.get("avgPrice")) if row.get("avgPrice") not in (None, "") else None,
             leverage=_d(row.get("leverage")) if row.get("leverage") not in (None, "") else None,
+            position_im=(
+                _d(row.get("positionIM")) if row.get("positionIM") not in (None, "") else None
+            ),
+            unrealised_pnl=(
+                _d(row.get("unrealisedPnl"))
+                if row.get("unrealisedPnl") not in (None, "")
+                else None
+            ),
         )
 
     async def set_leverage(self, symbol: str, leverage: Decimal) -> None:

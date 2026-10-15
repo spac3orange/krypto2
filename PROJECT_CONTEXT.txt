@@ -269,6 +269,7 @@ Commands:
   /start  — short HTML: commands + current setting values (Russian labels)
   /help   — full Russian how-to + per-key descriptions + /set examples
   /get_balance — Bybit UNIFIED equity/available (needs TRADING_MODE demo|mainnet)
+  /get_orders — open positions + working orders (diagnose Available=0)
   /config — current values + descriptions
   /set KEY VALUE — update runtime_config in SQLite
 
@@ -307,7 +308,11 @@ C) Check Bybit balance via API (no Telegram):
      python -m app.tools.get_balance
    Requires TRADING_MODE=demo|mainnet and BYBIT_API_KEY/SECRET.
 
-D) Simulate signals without Telegram (Demo only):
+D) List open positions and working orders via API:
+     python -m app.tools.get_orders
+   Same requirements as get_balance.
+
+E) Simulate signals without Telegram (Demo only):
      python -m app.tools.simulate_signal --symbol BTC --side dump
      python -m app.tools.simulate_signal --file data/trading/test_signals.json
      python -m app.tools.simulate_signal --file ... --dry-run

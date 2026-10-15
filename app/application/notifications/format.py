@@ -6,7 +6,7 @@ import html
 from dataclasses import dataclass
 
 from app.domain.notifications.models import OrderNotice, OrderUpdateKind, SignalNotice
-from app.domain.trading.models import AccountSnapshot
+from app.domain.trading.models import AccountSnapshot, OpenOrderSnapshot, PositionSnapshot
 from app.domain.trading.runtime_config import RuntimeTradingConfig
 
 _KIND_TITLE = {
@@ -228,6 +228,68 @@ def format_balance(snapshot: AccountSnapshot, *, trading_mode: str) -> str:
     )
 
 
+def format_open_exposure(
+    *,
+    trading_mode: str,
+    positions: list[PositionSnapshot],
+    orders: list[OpenOrderSnapshot],
+) -> str:
+    """Open positions + working orders (why Available may be 0)."""
+    lines = [
+        "<b><u>Открыто на Bybit</u></b>",
+        f"Режим: <code>{html.escape(trading_mode)}</code>",
+        "",
+        f"<b>Позиции</b> ({len(positions)}):",
+    ]
+    if not positions:
+        lines.append("<i>нет</i>")
+    else:
+        for pos in positions[:30]:
+            side = html.escape(pos.side or "—")
+            avg = html.escape(str(pos.avg_price) if pos.avg_price is not None else "—")
+            lev = html.escape(str(pos.leverage) if pos.leverage is not None else "—")
+            im = html.escape(str(pos.position_im) if pos.position_im is not None else "—")
+            pnl = html.escape(
+                str(pos.unrealised_pnl) if pos.unrealised_pnl is not None else "—"
+            )
+            lines.append(
+                f"{format_symbol_link(pos.symbol)} {side} "
+                f"size=<code>{html.escape(str(pos.size))}</code> "
+                f"avg=<code>{avg}</code> lev=<code>{lev}</code>\n"
+                f"  margin(IM)=<code>{im}</code> uPnL=<code>{pnl}</code>"
+            )
+        if len(positions) > 30:
+            lines.append(f"<i>… ещё {len(positions) - 30}</i>")
+
+    lines.append("")
+    lines.append(f"<b>Открытые ордера</b> ({len(orders)}):")
+    if not orders:
+        lines.append("<i>нет</i>")
+    else:
+        for order in orders[:30]:
+            price = html.escape(str(order.price) if order.price is not None else "market")
+            reduce = " reduceOnly" if order.reduce_only else ""
+            link = html.escape(order.order_link_id) if order.order_link_id else "—"
+            lines.append(
+                f"{format_symbol_link(order.symbol)} "
+                f"{html.escape(order.side)} {html.escape(order.order_type)} "
+                f"qty=<code>{html.escape(str(order.qty))}</code> "
+                f"left=<code>{html.escape(str(order.leaves_qty))}</code> "
+                f"px=<code>{price}</code> "
+                f"{html.escape(order.order_status)}{reduce}\n"
+                f"  link=<code>{link}</code>"
+            )
+        if len(orders) > 30:
+            lines.append(f"<i>… ещё {len(orders) - 30}</i>")
+
+    lines.append("")
+    lines.append(
+        "<i>Available=0 чаще из‑за позиций (занятая маржа), "
+        "а не только из‑за ордеров.</i>"
+    )
+    return "\n".join(lines)
+
+
 def format_set_usage() -> str:
     """Help for incomplete /set."""
     lines = [
@@ -265,6 +327,7 @@ def config_start_text(config: RuntimeTradingConfig) -> str:
         "/help — реакция на сигналы и описание настроек",
         "/set КЛЮЧ ЗНАЧЕНИЕ — изменить настройку",
         "/get_balance — баланс Bybit (equity / available)",
+        "/get_orders — открытые позиции и ордера",
         "",
         "<b><u>Текущие настройки</u></b>",
     ]
@@ -300,6 +363,7 @@ def config_help_text() -> str:
         "/start — короткий экран",
         "/set КЛЮЧ ЗНАЧЕНИЕ — изменить настройку",
         "/get_balance — баланс счёта через Bybit API (equity и available)",
+        "/get_orders — открытые позиции и рабочие ордера (почему Available=0)",
         "",
         "<b><u>Настройки</u></b>",
         "",

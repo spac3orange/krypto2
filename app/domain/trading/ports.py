@@ -10,6 +10,7 @@ from app.domain.trading.models import (
     AccountSnapshot,
     ExecutionRecord,
     MarketTicker,
+    OpenOrderSnapshot,
     OrderExecution,
     OrderSubmission,
     ParsedTradingSignal,
@@ -46,6 +47,12 @@ class TradingGateway(Protocol):
 
     async def get_position(self, symbol: str) -> PositionSnapshot:
         """Fetch one-way position for symbol (size may be zero)."""
+
+    async def list_open_positions(self) -> list[PositionSnapshot]:
+        """List non-zero positions for settle coin (linear)."""
+
+    async def list_open_orders(self) -> list[OpenOrderSnapshot]:
+        """List working open orders for settle coin (linear)."""
 
     async def set_leverage(self, symbol: str, leverage: Decimal) -> None:
         """Set buy/sell leverage equally (one-way)."""

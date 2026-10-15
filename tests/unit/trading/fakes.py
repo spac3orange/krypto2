@@ -9,6 +9,7 @@ from app.domain.trading.enums import OrderSide
 from app.domain.trading.models import (
     AccountSnapshot,
     MarketTicker,
+    OpenOrderSnapshot,
     OrderExecution,
     OrderSubmission,
     PositionSnapshot,
@@ -31,6 +32,7 @@ class FakeTradingGateway:
         self.tickers: dict[str, MarketTicker] = {}
         self.positions: dict[str, PositionSnapshot] = {}
         self.orders_by_link: dict[str, OrderExecution] = {}
+        self.open_orders: list[OpenOrderSnapshot] = []
         self.placed: list[dict[str, object]] = []
         self.leverage_calls: list[tuple[str, Decimal]] = []
         self.trading_stops: list[tuple[str, TakeProfitPlan]] = []
@@ -103,6 +105,12 @@ class FakeTradingGateway:
             leverage=None,
         )
         return self.positions.get(symbol, empty)
+
+    async def list_open_positions(self) -> list[PositionSnapshot]:
+        return [pos for pos in self.positions.values() if pos.size != 0]
+
+    async def list_open_orders(self) -> list[OpenOrderSnapshot]:
+        return list(self.open_orders)
 
     async def set_leverage(self, symbol: str, leverage: Decimal) -> None:
         self.leverage_calls.append((symbol, leverage))

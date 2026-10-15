@@ -13,6 +13,7 @@ from app.application.notifications.format import (
     config_help_text,
     config_start_text,
     format_balance,
+    format_open_exposure,
     format_runtime_config,
     format_set_error,
     format_set_usage,
@@ -105,6 +106,52 @@ def build_router(admin_ids: frozenset[int], deps: OperatorBotDeps) -> Router:
             return
         await message.answer(
             format_balance(snapshot, trading_mode=deps.trading_mode),
+            parse_mode=ParseMode.HTML,
+        )
+
+    @admin.message(Command("get_orders", "orders"))
+    async def get_orders_command(message: Message) -> None:
+        gateway = deps.gateway
+        if gateway is None:
+            await message.answer(
+                "Биржа не подключена. Нужен <code>TRADING_MODE=demo</code> "
+                "или <code>mainnet</code> при старте программы.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+        try:
+            positions = await gateway.list_open_positions()
+            orders = await gateway.list_open_orders()
+        except (BybitApiError, BybitTransportError) as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "bot.orders.failed",
+                "Open orders/positions request failed",
+                error_type=type(exc).__name__,
+            )
+            await message.answer(
+                f"Не удалось получить ордера/позиции: {type(exc).__name__}"
+            )
+            return
+        except Exception as exc:  # noqa: BLE001 — show safe error to operator
+            log_event(
+                logger,
+                logging.WARNING,
+                "bot.orders.failed",
+                "Open orders/positions request failed",
+                error_type=type(exc).__name__,
+            )
+            await message.answer(
+                f"Не удалось получить ордера/позиции: {type(exc).__name__}"
+            )
+            return
+        await message.answer(
+            format_open_exposure(
+                trading_mode=deps.trading_mode,
+                positions=positions,
+                orders=orders,
+            ),
             parse_mode=ParseMode.HTML,
         )
 

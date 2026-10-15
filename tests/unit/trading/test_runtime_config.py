@@ -11,6 +11,7 @@ from app.application.notifications.format import (
     config_help_text,
     config_start_text,
     format_balance,
+    format_open_exposure,
     format_order_notice,
     format_runtime_config,
     format_signal_notice,
@@ -20,7 +21,7 @@ from app.core.config import Settings
 from app.core.errors import ConfigurationError
 from app.domain.notifications.models import OrderNotice, OrderUpdateKind, SignalNotice
 from app.domain.trading.enums import TradingMode
-from app.domain.trading.models import AccountSnapshot
+from app.domain.trading.models import AccountSnapshot, OpenOrderSnapshot, PositionSnapshot
 from app.infrastructure.persistence.sqlite_runtime_config import SqliteRuntimeConfigStore
 
 
@@ -107,6 +108,42 @@ def test_format_balance_shows_equity_and_available() -> None:
     assert "TRADE_MARGIN_PCT" in text
 
 
+def test_format_open_exposure_lists_positions_and_orders() -> None:
+    text = format_open_exposure(
+        trading_mode="demo",
+        positions=[
+            PositionSnapshot(
+                symbol="BTCUSDT",
+                size=Decimal("0.01"),
+                side="Buy",
+                avg_price=Decimal("50000"),
+                leverage=Decimal("5"),
+                position_im=Decimal("100"),
+                unrealised_pnl=Decimal("1.5"),
+            )
+        ],
+        orders=[
+            OpenOrderSnapshot(
+                symbol="ETHUSDT",
+                side="Sell",
+                order_type="Limit",
+                qty=Decimal("1"),
+                leaves_qty=Decimal("1"),
+                price=Decimal("3000"),
+                order_status="New",
+                reduce_only=False,
+                order_link_id="abc",
+            )
+        ],
+    )
+    assert "Позиции</b> (1)" in text
+    assert "BTCUSDT" in text
+    assert "margin(IM)=<code>100</code>" in text
+    assert "Открытые ордера</b> (1)" in text
+    assert "ETHUSDT" in text
+    assert "Available=0" in text
+
+
 def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) -> None:
     service = RuntimeConfigService(_settings(monkeypatch), MemoryConfigStore())
     service.seed()
@@ -125,6 +162,8 @@ def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) ->
     assert "ORDERS_ENABLED" in help_text
     assert "/get_balance" in start
     assert "/get_balance" in help_text
+    assert "/get_orders" in start
+    assert "/get_orders" in help_text
     assert "<b>Реакция на Dump:</b> <code>вкл</code>" in start
     assert "python -m app" not in help_text
     assert ".env" not in help_text
