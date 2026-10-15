@@ -326,7 +326,6 @@ def config_start_text(config: RuntimeTradingConfig) -> str:
         "/help — реакция на сигналы и описание настроек",
         "/set КЛЮЧ ЗНАЧЕНИЕ — изменить настройку",
         "/get_balance — баланс Bybit (equity / available)",
-        "/get_orders — открытые позиции и ордера",
         "",
         "<b><u>Текущие настройки</u></b>",
     ]
@@ -364,7 +363,6 @@ def config_help_text() -> str:
         "/start — короткий экран",
         "/set КЛЮЧ ЗНАЧЕНИЕ — изменить настройку",
         "/get_balance — баланс счёта через Bybit API (equity и available)",
-        "/get_orders — открытые позиции и рабочие ордера (почему Available=0)",
         "",
         "<b><u>Настройки</u></b>",
         "",
