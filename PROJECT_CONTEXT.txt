@@ -39,7 +39,7 @@ DONE
   - Signal parse (deterministic regex)
   - Validation (age, edited messages, exchange filter)
   - Instrument resolve (ticker → SYMBOLUSDT linear)
-  - Position sizing from equity × margin% × leverage / price
+  - Position sizing from available USDT × margin% × leverage / price
   - Bybit Demo Trading + mainnet kill-switch
   - Durable SQLite execution journal + orderLinkId idempotency
   - TP/SL after fill (price % from avg entry)
@@ -228,7 +228,7 @@ Modes:
   testnet  — rejected at config load ("use demo")
 
 Sizing:
-  target_margin   = equity * TRADE_MARGIN_PCT / 100
+  target_margin   = available_USDT * TRADE_MARGIN_PCT / 100
   target_notional ≈ target_margin * BYBIT_LEVERAGE
   qty = floor(notional / sizing_price) to qtyStep
   If qty < minOrderQty or notional < minNotional → REJECT (never bump qty up)
@@ -357,7 +357,7 @@ BYBIT_LEVERAGE=5                  # also runtime-editable
 BYBIT_EXPECTED_MARGIN_MODE=       # optional check; never auto-switch
 
 --- Sizing / TP / SL / policy ---
-TRADE_MARGIN_PCT=1.0              # % of equity as target initial margin
+TRADE_MARGIN_PCT=1.0              # % of free USDT (Available) as target initial margin
 ORDER_SIZING_PRICE=lastPrice|markPrice
 TAKE_PROFIT_ENABLED=true
 TAKE_PROFIT_PCT=2.0               # % of entry price, not account risk %

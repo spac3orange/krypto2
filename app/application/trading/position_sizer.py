@@ -1,4 +1,4 @@
-"""Position sizing from equity % + leverage (Decimal only)."""
+"""Position sizing from free USDT % + leverage (Decimal only)."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class SizedPosition:
 
 
 class PositionSizer:
-    """Compute market qty from TRADE_MARGIN_PCT without exceeding allocation."""
+    """Compute market qty from TRADE_MARGIN_PCT of free USDT (Available)."""
 
     def size(
         self,
@@ -44,10 +44,14 @@ class PositionSizer:
         if sizing_price <= 0:
             raise InstrumentConstraintError("invalid_pricing")
 
-        target_margin = (account.total_equity * trade_margin_pct) / Decimal("100")
+        available = account.total_available_balance
+        if available <= 0:
+            raise InsufficientBalanceError("insufficient_available_balance")
+
+        target_margin = (available * trade_margin_pct) / Decimal("100")
         if target_margin <= 0:
             raise InsufficientBalanceError("insufficient_available_balance")
-        if account.total_available_balance < target_margin:
+        if available < target_margin:
             raise InsufficientBalanceError("insufficient_available_balance")
 
         if leverage > instrument.max_leverage:

@@ -265,7 +265,7 @@ class TradingSignalOrchestrator:
                 logger,
                 logging.INFO,
                 "trading.position.sized",
-                "Position sized from equity allocation",
+                "Position sized from available USDT allocation",
                 symbol=instrument.symbol,
                 target_margin=str(sized.target_margin),
                 target_notional=str(sized.target_notional),

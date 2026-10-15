@@ -45,12 +45,12 @@ Unknown mode → startup error. Mainnet never enables by accident.
 
 ### TRADE_MARGIN_PCT
 
-Percent of Unified `totalEquity` used as **target initial margin**, not notional and not max loss.
+Percent of free USDT (`Available` / settle-coin free balance) used as **target initial margin**, not notional and not max loss. Account-wide equity is not used for sizing.
 
 Example:
 
 ```text
-equity = 100 USDT
+available = 100 USDT
 TRADE_MARGIN_PCT = 1
 BYBIT_LEVERAGE = 5
 

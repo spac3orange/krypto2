@@ -37,7 +37,7 @@ def _instrument(**kwargs: object) -> ResolvedInstrument:
     return ResolvedInstrument(**base)  # type: ignore[arg-type]
 
 
-def test_example_sizing_equity_100_margin_1pct_lev_5_price_10() -> None:
+def test_example_sizing_available_100_margin_1pct_lev_5_price_10() -> None:
     account = AccountSnapshot(
         total_equity=Decimal("100"),
         total_available_balance=Decimal("100"),
@@ -114,6 +114,34 @@ def test_never_bump_qty_for_min_notional() -> None:
             leverage=Decimal("5"),
             sizing_price=Decimal("10"),
         )
+
+
+def test_sizes_from_available_not_equity() -> None:
+    """High equity must not inflate size when free USDT is lower."""
+    account = AccountSnapshot(
+        total_equity=Decimal("183000"),
+        total_available_balance=Decimal("50000"),
+        margin_mode="ISOLATED_MARGIN",
+        unified_margin_status=5,
+    )
+    instrument = _instrument(
+        qty_step=Decimal("0.1"),
+        min_order_qty=Decimal("0.1"),
+        min_notional_value=Decimal("1"),
+    )
+    ticker = MarketTicker(symbol="SAGAUSDT", last_price=Decimal("10"), mark_price=Decimal("10"))
+    sized = PositionSizer().size(
+        account=account,
+        instrument=instrument,
+        ticker=ticker,
+        trade_margin_pct=Decimal("0.1"),
+        leverage=Decimal("1"),
+        sizing_price=Decimal("10"),
+    )
+    # 50000 * 0.1% = 50 USDT margin; notional 50 at price 10 → qty 5
+    assert sized.target_margin == Decimal("50")
+    assert sized.target_notional == Decimal("50")
+    assert sized.quantity == Decimal("5.0")
 
 
 def test_leverage_above_max_rejected() -> None:
