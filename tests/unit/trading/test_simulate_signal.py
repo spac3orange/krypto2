@@ -64,7 +64,7 @@ def test_pump_message_roundtrip() -> None:
     assert signal is not None
     assert signal.symbol == "BTC"
     assert signal.signal_type is TradingSignalType.PUMP
-    assert signal.action is TradeAction.BUY
+    assert signal.action is TradeAction.SELL
     assert signal.change_percent == Decimal("10")
     assert signal.price_to == Decimal("110")
 

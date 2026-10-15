@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from decimal import Decimal
@@ -318,6 +319,17 @@ class TradingSignalOrchestrator:
                 provisional_take_profit=provisional_tp,
                 provisional_stop_loss=provisional_sl,
             )
+
+            if runtime.order_open_delay_sec > 0:
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "trading.order.delay",
+                    "Waiting before order submit",
+                    delay_sec=runtime.order_open_delay_sec,
+                    **base_fields,
+                )
+                await asyncio.sleep(runtime.order_open_delay_sec)
 
             await self._execute(intent, instrument.tick_size, base_fields)
 

@@ -29,9 +29,9 @@ _SIGNAL_24H_RE = re.compile(
 
 _PUMP_OR_DUMP_WORD_RE = re.compile(r"(?i)\b(pump|dump)\b")
 
-# Matches screener labels: 🟢 Лонг, 🔴 Шорт, 🔻 Дамп.
+# Pump (any colour) → short; Dump → long.
 _ACTION_BY_TYPE = {
-    TradingSignalType.PUMP: TradeAction.BUY,
+    TradingSignalType.PUMP: TradeAction.SELL,
     TradingSignalType.SHORT: TradeAction.SELL,
     TradingSignalType.DUMP: TradeAction.BUY,
 }
@@ -56,16 +56,19 @@ class SignalParseResult:
 
 
 def _classify_signal_type(*, word: str, emoji: str | None) -> TradingSignalType:
-    """Map screener emoji + Pump/Dump word to an internal signal type."""
+    """Map screener emoji + Pump/Dump word to an internal signal type.
+
+    Direction is always short for Pump (green or red); Dump is long.
+    Emoji only splits toggles: 🟢 → REACT_PUMP, 🔴 → REACT_SHORT.
+    """
     kind = word.upper()
     if kind == "DUMP":
         return TradingSignalType.DUMP
-    # Pump line: green = long (PUMP), red = short (SHORT).
     if emoji == "🟢":
         return TradingSignalType.PUMP
     if emoji == "🔴":
         return TradingSignalType.SHORT
-    # No emoji: treat as short so plain "Pump:" keeps sell behaviour.
+    # No emoji: same as red Pump (short / REACT_SHORT).
     return TradingSignalType.SHORT
 
 

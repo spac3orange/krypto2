@@ -112,6 +112,7 @@ class Settings(BaseSettings):
     stop_loss_enabled: bool = Field(default=False, alias="STOP_LOSS_ENABLED")
     stop_loss_pct: Decimal | None = Field(default=None, alias="STOP_LOSS_PCT")
     max_signal_age_seconds: int = Field(default=30, alias="MAX_SIGNAL_AGE_SECONDS")
+    order_open_delay_sec: int = Field(default=0, alias="ORDER_OPEN_DELAY_SEC")
     execute_edited_messages: bool = Field(
         default=False,
         alias="EXECUTE_EDITED_MESSAGES",
@@ -277,6 +278,9 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         if self.max_signal_age_seconds <= 0:
             msg = "MAX_SIGNAL_AGE_SECONDS must be > 0"
+            raise ValueError(msg)
+        if self.order_open_delay_sec < 0:
+            msg = "ORDER_OPEN_DELAY_SEC must be >= 0"
             raise ValueError(msg)
         if self.order_fill_timeout_sec <= 0:
             msg = "ORDER_FILL_TIMEOUT_SEC must be > 0"

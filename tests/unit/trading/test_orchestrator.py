@@ -135,6 +135,27 @@ async def test_orders_disabled_skips(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 
 
 @pytest.mark.asyncio
+async def test_order_open_delay_waits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = make_settings(monkeypatch, tmp_path, ORDER_OPEN_DELAY_SEC="3")
+    gw = FakeTradingGateway()
+    gw.add_linear_usdt("SAGAUSDT", last_price="0.50", min_notional="5")
+    orch = TradingSignalOrchestrator(
+        settings, gateway=gw, store=SqliteExecutionStore(settings.execution_db_path)
+    )
+    slept: list[float] = []
+
+    async def _fake_sleep(seconds: float) -> None:
+        slept.append(seconds)
+
+    monkeypatch.setattr("app.application.trading.orchestrator.asyncio.sleep", _fake_sleep)
+    await orch.handle(_event(event_id="telegram:1:delay:new"), _signal())
+    assert slept == [3.0]
+    assert len(gw.placed) == 1
+
+
+@pytest.mark.asyncio
 async def test_react_dump_off_skips_dump(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

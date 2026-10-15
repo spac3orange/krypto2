@@ -50,13 +50,13 @@ def test_br_dump() -> None:
     assert signal.price_to == Decimal("0.98875")
 
 
-def test_lyn_green_pump_is_long() -> None:
+def test_lyn_green_pump_is_short() -> None:
     text = "⚫ ByBit – 10m – LYN\n🟢 Pump: 21.2% (0.0425-0.05151)\n📡 Signal 24h: 1"
     signal = parse_trading_signal(text).signal
     assert signal is not None
     assert signal.symbol == "LYN"
     assert signal.signal_type is TradingSignalType.PUMP
-    assert signal.action is TradeAction.BUY
+    assert signal.action is TradeAction.SELL
     assert signal.change_percent == Decimal("21.2")
     assert signal.price_from == Decimal("0.0425")
     assert signal.price_to == Decimal("0.05151")

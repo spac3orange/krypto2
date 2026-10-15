@@ -34,6 +34,7 @@ _KEYS = (
     "STOP_LOSS_ENABLED",
     "STOP_LOSS_PCT",
     "MAX_SIGNAL_AGE_SECONDS",
+    "ORDER_OPEN_DELAY_SEC",
     "EXECUTE_EDITED_MESSAGES",
     "REACT_DUMP",
     "REACT_PUMP",
@@ -55,6 +56,7 @@ def defaults_from_settings(settings: Settings) -> dict[str, str]:
         "STOP_LOSS_ENABLED": _bool_text(settings.stop_loss_enabled),
         "STOP_LOSS_PCT": stop,
         "MAX_SIGNAL_AGE_SECONDS": str(settings.max_signal_age_seconds),
+        "ORDER_OPEN_DELAY_SEC": str(settings.order_open_delay_sec),
         "EXECUTE_EDITED_MESSAGES": _bool_text(settings.execute_edited_messages),
         "REACT_DUMP": _bool_text(settings.react_dump),
         "REACT_PUMP": _bool_text(settings.react_pump),
@@ -114,6 +116,10 @@ def parse_stored_config(values: dict[str, str]) -> RuntimeTradingConfig:
     if not age_raw.isdigit():
         msg = "MAX_SIGNAL_AGE_SECONDS must be a positive integer"
         raise ConfigurationError(msg)
+    delay_raw = values["ORDER_OPEN_DELAY_SEC"].strip()
+    if not delay_raw.isdigit():
+        msg = "ORDER_OPEN_DELAY_SEC must be an integer >= 0"
+        raise ConfigurationError(msg)
     return RuntimeTradingConfig(
         trading_mode=mode,
         bybit_leverage=_parse_decimal(values["BYBIT_LEVERAGE"], label="BYBIT_LEVERAGE"),
@@ -124,6 +130,7 @@ def parse_stored_config(values: dict[str, str]) -> RuntimeTradingConfig:
         stop_loss_enabled=_parse_bool(values["STOP_LOSS_ENABLED"]),
         stop_loss_pct=stop_pct,
         max_signal_age_seconds=int(age_raw),
+        order_open_delay_sec=int(delay_raw),
         execute_edited_messages=_parse_bool(values["EXECUTE_EDITED_MESSAGES"]),
         react_dump=_parse_bool(values["REACT_DUMP"]),
         react_pump=_parse_bool(values["REACT_PUMP"]),
@@ -257,6 +264,12 @@ def _apply_field(
             msg = "Допустимо: целое число ≥ 1"
             raise ConfigurationError(msg)
         return str(int(raw))
+    if key == "ORDER_OPEN_DELAY_SEC":
+        raw = raw_value.strip()
+        if not raw.isdigit():
+            msg = "Допустимо: целое число ≥ 0 (0 = сразу)"
+            raise ConfigurationError(msg)
+        return str(int(raw))
     msg = f"Неизвестный ключ {key!r}"
     raise ConfigurationError(msg)
 
@@ -276,4 +289,7 @@ def _check_ranges(config: RuntimeTradingConfig) -> None:
         raise ConfigurationError(msg)
     if config.max_signal_age_seconds <= 0:
         msg = "MAX_SIGNAL_AGE_SECONDS must be > 0"
+        raise ConfigurationError(msg)
+    if config.order_open_delay_sec < 0:
+        msg = "ORDER_OPEN_DELAY_SEC must be >= 0"
         raise ConfigurationError(msg)

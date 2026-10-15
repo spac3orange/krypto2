@@ -8,9 +8,9 @@ from enum import StrEnum
 class TradingSignalType(StrEnum):
     """Signal category from @pump_screener_bot (by emoji / word)."""
 
-    PUMP = "PUMP"  # 🟢 Pump → long alert
-    SHORT = "SHORT"  # 🔴 Pump → short alert
-    DUMP = "DUMP"  # 🔻 Dump
+    PUMP = "PUMP"  # 🟢 Pump → short (Sell)
+    SHORT = "SHORT"  # 🔴 Pump → short (Sell)
+    DUMP = "DUMP"  # 🔻 Dump → long (Buy)
 
 
 class TradeAction(StrEnum):

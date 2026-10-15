@@ -22,6 +22,7 @@ class RuntimeTradingConfig:
     stop_loss_enabled: bool
     stop_loss_pct: Decimal | None
     max_signal_age_seconds: int
+    order_open_delay_sec: int
     execute_edited_messages: bool
     react_dump: bool
     react_pump: bool

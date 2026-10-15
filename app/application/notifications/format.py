@@ -136,6 +136,12 @@ _FIELD_HELP: dict[str, _FieldHelp] = {
         "/set MAX_SIGNAL_AGE_SECONDS 30",
         "целое число ≥ 1 (например 30)",
     ),
+    "ORDER_OPEN_DELAY_SEC": _FieldHelp(
+        "Задержка перед ордером, секунды",
+        "Сколько ждать после сигнала перед отправкой ордера на биржу. 0 — сразу.",
+        "/set ORDER_OPEN_DELAY_SEC 5",
+        "целое число ≥ 0 (например 0 или 5)",
+    ),
     "EXECUTE_EDITED_MESSAGES": _FieldHelp(
         "Торговать правки сообщений",
         "Нет — правка сигнала новую сделку не открывает. Да — правка тоже торгуется.",
@@ -149,14 +155,14 @@ _FIELD_HELP: dict[str, _FieldHelp] = {
         _BOOL_ALLOWED,
     ),
     "REACT_PUMP": _FieldHelp(
-        "Реакция на Pump (лонг)",
-        "Вкл — реагируем на 🟢 Pump (открываем лонг). Выкл — такие сигналы пропускаем.",
+        "Реакция на 🟢 Pump",
+        "Вкл — реагируем на 🟢 Pump (открываем шорт). Выкл — такие сигналы пропускаем.",
         "/set REACT_PUMP true",
         _BOOL_ALLOWED,
     ),
     "REACT_SHORT": _FieldHelp(
-        "Реакция на Short",
-        "Вкл — реагируем на 🔴 Pump / Short (открываем шорт). Выкл — такие сигналы пропускаем.",
+        "Реакция на 🔴 Pump",
+        "Вкл — реагируем на 🔴 Pump (открываем шорт). Выкл — такие сигналы пропускаем.",
         "/set REACT_SHORT true",
         _BOOL_ALLOWED,
     ),
@@ -189,6 +195,7 @@ def _config_rows(config: RuntimeTradingConfig) -> tuple[tuple[str, str], ...]:
         ("STOP_LOSS_ENABLED", _on_off(config.stop_loss_enabled)),
         ("STOP_LOSS_PCT", stop_pct or "не задан"),
         ("MAX_SIGNAL_AGE_SECONDS", str(config.max_signal_age_seconds)),
+        ("ORDER_OPEN_DELAY_SEC", str(config.order_open_delay_sec)),
         ("EXECUTE_EDITED_MESSAGES", _on_off(config.execute_edited_messages)),
     )
 
@@ -336,12 +343,14 @@ def config_help_text() -> str:
         "Сюда приходят копии сигналов и статусы сделок.",
         "",
         "🔻 <b>Dump</b> — открываем <b>лонг</b> (покупка).",
-        "🟢 <b>Pump</b> — открываем <b>лонг</b> (как «Лонг» в скринере).",
-        "🔴 <b>Pump / Short</b> — открываем <b>шорт</b> (продажа).",
+        "🟢 / 🔴 <b>Pump</b> — всегда открываем <b>шорт</b> (продажа), "
+        "цвет смайлика не важен.",
         "",
-        "Реакцию на каждый тип можно выключить: "
-        "<code>REACT_DUMP</code>, <code>REACT_PUMP</code>, <code>REACT_SHORT</code>.",
+        "Реакцию можно выключить отдельно: "
+        "<code>REACT_DUMP</code>, <code>REACT_PUMP</code> (🟢), "
+        "<code>REACT_SHORT</code> (🔴).",
         "Размещение ордеров целиком: <code>ORDERS_ENABLED</code>.",
+        "Пауза перед ордером: <code>ORDER_OPEN_DELAY_SEC</code>.",
         "",
         "Размер сделки считается от депозита, маржи и плеча. "
         "Цены и процент из сообщения на объём не влияют.",

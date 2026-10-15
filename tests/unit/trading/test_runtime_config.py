@@ -158,6 +158,8 @@ def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) ->
     assert "sqlite" not in start.lower()
     assert "<b><u>Сигналы @pump_screener_bot</u></b>" in help_text
     assert "Dump" in help_text and "лонг" in help_text
+    assert "Pump" in help_text and "шорт" in help_text
+    assert "ORDER_OPEN_DELAY_SEC" in help_text
     assert "REACT_SHORT" in help_text
     assert "ORDERS_ENABLED" in help_text
     assert "/get_balance" in start
@@ -194,6 +196,16 @@ def test_set_accepts_russian_bool(monkeypatch: pytest.MonkeyPatch) -> None:
     assert updated.orders_enabled is False
     updated = service.set_field("REACT_DUMP", "да")
     assert updated.react_dump is True
+
+
+def test_set_order_open_delay_sec(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = RuntimeConfigService(_settings(monkeypatch), MemoryConfigStore())
+    service.seed()
+    assert service.get().order_open_delay_sec == 0
+    updated = service.set_field("ORDER_OPEN_DELAY_SEC", "5")
+    assert updated.order_open_delay_sec == 5
+    with pytest.raises(ConfigurationError, match="≥ 0"):
+        service.set_field("ORDER_OPEN_DELAY_SEC", "-1")
 
 
 def test_set_rejects_bad_value_with_hint(monkeypatch: pytest.MonkeyPatch) -> None:
