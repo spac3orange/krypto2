@@ -11,6 +11,8 @@ from aiogram.client.session.aiohttp import AiohttpSession
 
 from app.application.trading.runtime_config_service import RuntimeConfigService
 from app.core.logging import log_event
+from app.domain.trading.ports import TradingGateway
+from app.infrastructure.bot.deps import OperatorBotDeps
 from app.infrastructure.bot.handlers import build_router
 from app.infrastructure.bot.notifier import AiogramOperatorNotifier
 from app.infrastructure.telegram.proxy import proxy_log_fields, proxy_url_for_aiogram
@@ -39,17 +41,27 @@ class OperatorBotService:
     ) -> None:
         self._token = token
         self._admin_ids = admin_ids
-        self._config = config
         self._proxy_url = proxy_url
+        self._deps = OperatorBotDeps(config=config)
         self._bot: Bot | None = None
         self._dispatcher: Dispatcher | None = None
         self._poll_task: asyncio.Task[None] | None = None
         self.notifier: AiogramOperatorNotifier | None = None
 
+    def attach_exchange(
+        self,
+        gateway: TradingGateway,
+        *,
+        trading_mode: str,
+    ) -> None:
+        """Wire Bybit gateway after trading preflight (enables /get_balance)."""
+        self._deps.gateway = gateway
+        self._deps.trading_mode = trading_mode
+
     async def start(self) -> None:
         bot = create_operator_bot(self._token, self._proxy_url)
         dispatcher = Dispatcher()
-        dispatcher.include_router(build_router(self._admin_ids, self._config))
+        dispatcher.include_router(build_router(self._admin_ids, self._deps))
         self._bot = bot
         self._dispatcher = dispatcher
         self.notifier = AiogramOperatorNotifier(bot, self._admin_ids)

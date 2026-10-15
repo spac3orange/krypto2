@@ -6,6 +6,7 @@ import html
 from dataclasses import dataclass
 
 from app.domain.notifications.models import OrderNotice, OrderUpdateKind, SignalNotice
+from app.domain.trading.models import AccountSnapshot
 from app.domain.trading.runtime_config import RuntimeTradingConfig
 
 _KIND_TITLE = {
@@ -212,6 +213,21 @@ def format_runtime_config(config: RuntimeTradingConfig) -> str:
     return "\n".join(lines).rstrip()
 
 
+def format_balance(snapshot: AccountSnapshot, *, trading_mode: str) -> str:
+    """Operator-facing balance snapshot from Bybit API."""
+    return (
+        "<b><u>Баланс Bybit</u></b>\n"
+        f"Режим: <code>{html.escape(trading_mode)}</code>\n"
+        f"Equity: <code>{html.escape(str(snapshot.total_equity))}</code>\n"
+        f"Available: <code>{html.escape(str(snapshot.total_available_balance))}</code>\n"
+        f"Margin mode: <code>{html.escape(snapshot.margin_mode or '—')}</code>\n"
+        f"Account: <code>{html.escape(snapshot.account_type)}</code>\n"
+        "\n"
+        "<i>Ордер отклоняется, если Available меньше "
+        "Equity × TRADE_MARGIN_PCT / 100.</i>"
+    )
+
+
 def format_set_usage() -> str:
     """Help for incomplete /set."""
     lines = [
@@ -248,6 +264,7 @@ def config_start_text(config: RuntimeTradingConfig) -> str:
         "/config — настройки с описанием",
         "/help — реакция на сигналы и описание настроек",
         "/set КЛЮЧ ЗНАЧЕНИЕ — изменить настройку",
+        "/get_balance — баланс Bybit (equity / available)",
         "",
         "<b><u>Текущие настройки</u></b>",
     ]
@@ -282,6 +299,7 @@ def config_help_text() -> str:
         "/config — текущие значения",
         "/start — короткий экран",
         "/set КЛЮЧ ЗНАЧЕНИЕ — изменить настройку",
+        "/get_balance — баланс счёта через Bybit API (equity и available)",
         "",
         "<b><u>Настройки</u></b>",
         "",

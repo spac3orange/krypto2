@@ -30,6 +30,7 @@ dev = [
 krypto2 = "app.main:main"
 krypto2-telegram-auth = "app.telegram.auth:main"
 krypto2-simulate = "app.tools.simulate_signal:main"
+krypto2-get-balance = "app.tools.get_balance:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from aiogram import Router
 from aiogram.enums import ParseMode
 from aiogram.filters import BaseFilter, Command
@@ -10,12 +12,16 @@ from aiogram.types import Message
 from app.application.notifications.format import (
     config_help_text,
     config_start_text,
+    format_balance,
     format_runtime_config,
     format_set_error,
     format_set_usage,
 )
-from app.application.trading.runtime_config_service import RuntimeConfigService
-from app.core.errors import ConfigurationError
+from app.core.errors import BybitApiError, BybitTransportError, ConfigurationError
+from app.core.logging import log_event
+from app.infrastructure.bot.deps import OperatorBotDeps
+
+logger = logging.getLogger(__name__)
 
 
 class AdminFilter(BaseFilter):
@@ -29,14 +35,14 @@ class AdminFilter(BaseFilter):
         return user is not None and user.id in self._admin_ids
 
 
-def build_router(admin_ids: frozenset[int], config: RuntimeConfigService) -> Router:
+def build_router(admin_ids: frozenset[int], deps: OperatorBotDeps) -> Router:
     """Admin commands plus a denial for everyone else."""
     admin = Router()
     admin.message.filter(AdminFilter(admin_ids))
 
     @admin.message(Command("start"))
     async def start_command(message: Message) -> None:
-        await message.answer(config_start_text(config.get()), parse_mode=ParseMode.HTML)
+        await message.answer(config_start_text(deps.config.get()), parse_mode=ParseMode.HTML)
 
     @admin.message(Command("help"))
     async def help_command(message: Message) -> None:
@@ -44,7 +50,10 @@ def build_router(admin_ids: frozenset[int], config: RuntimeConfigService) -> Rou
 
     @admin.message(Command("config"))
     async def show_config(message: Message) -> None:
-        await message.answer(format_runtime_config(config.get()), parse_mode=ParseMode.HTML)
+        await message.answer(
+            format_runtime_config(deps.config.get()),
+            parse_mode=ParseMode.HTML,
+        )
 
     @admin.message(Command("set"))
     async def set_config(message: Message) -> None:
@@ -53,7 +62,7 @@ def build_router(admin_ids: frozenset[int], config: RuntimeConfigService) -> Rou
             await message.answer(format_set_usage(), parse_mode=ParseMode.HTML)
             return
         try:
-            updated = config.set_field(parts[1], parts[2])
+            updated = deps.config.set_field(parts[1], parts[2])
         except ConfigurationError as exc:
             await message.answer(
                 format_set_error(parts[1], str(exc)),
@@ -61,6 +70,43 @@ def build_router(admin_ids: frozenset[int], config: RuntimeConfigService) -> Rou
             )
             return
         await message.answer(format_runtime_config(updated), parse_mode=ParseMode.HTML)
+
+    @admin.message(Command("get_balance", "balance"))
+    async def get_balance_command(message: Message) -> None:
+        gateway = deps.gateway
+        if gateway is None:
+            await message.answer(
+                "Биржа не подключена. Нужен <code>TRADING_MODE=demo</code> "
+                "или <code>mainnet</code> при старте программы.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+        try:
+            snapshot = await gateway.get_balance()
+        except (BybitApiError, BybitTransportError) as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "bot.balance.failed",
+                "Balance request failed",
+                error_type=type(exc).__name__,
+            )
+            await message.answer(f"Не удалось получить баланс: {type(exc).__name__}")
+            return
+        except Exception as exc:  # noqa: BLE001 — show safe error to operator
+            log_event(
+                logger,
+                logging.WARNING,
+                "bot.balance.failed",
+                "Balance request failed",
+                error_type=type(exc).__name__,
+            )
+            await message.answer(f"Не удалось получить баланс: {type(exc).__name__}")
+            return
+        await message.answer(
+            format_balance(snapshot, trading_mode=deps.trading_mode),
+            parse_mode=ParseMode.HTML,
+        )
 
     public = Router()
 

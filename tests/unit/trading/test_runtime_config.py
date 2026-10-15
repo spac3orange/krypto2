@@ -10,6 +10,7 @@ from app.application.notifications.format import (
     bybit_usdt_trade_url,
     config_help_text,
     config_start_text,
+    format_balance,
     format_order_notice,
     format_runtime_config,
     format_signal_notice,
@@ -19,6 +20,7 @@ from app.core.config import Settings
 from app.core.errors import ConfigurationError
 from app.domain.notifications.models import OrderNotice, OrderUpdateKind, SignalNotice
 from app.domain.trading.enums import TradingMode
+from app.domain.trading.models import AccountSnapshot
 from app.infrastructure.persistence.sqlite_runtime_config import SqliteRuntimeConfigStore
 
 
@@ -88,6 +90,23 @@ def test_sqlite_config_roundtrip(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert again.get().trade_margin_pct == Decimal("2.5")
 
 
+def test_format_balance_shows_equity_and_available() -> None:
+    text = format_balance(
+        AccountSnapshot(
+            total_equity=Decimal("1000.5"),
+            total_available_balance=Decimal("800.25"),
+            margin_mode="REGULAR_MARGIN",
+            unified_margin_status=3,
+            account_type="UNIFIED",
+        ),
+        trading_mode="demo",
+    )
+    assert "Equity: <code>1000.5</code>" in text
+    assert "Available: <code>800.25</code>" in text
+    assert "Режим: <code>demo</code>" in text
+    assert "TRADE_MARGIN_PCT" in text
+
+
 def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) -> None:
     service = RuntimeConfigService(_settings(monkeypatch), MemoryConfigStore())
     service.seed()
@@ -104,6 +123,8 @@ def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) ->
     assert "Dump" in help_text and "лонг" in help_text
     assert "REACT_SHORT" in help_text
     assert "ORDERS_ENABLED" in help_text
+    assert "/get_balance" in start
+    assert "/get_balance" in help_text
     assert "<b>Реакция на Dump:</b> <code>вкл</code>" in start
     assert "python -m app" not in help_text
     assert ".env" not in help_text

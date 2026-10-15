@@ -268,6 +268,7 @@ Does NOT read the signal chat. Admin-only (TELEGRAM_BOT_ADMIN_IDS).
 Commands:
   /start  — short HTML: commands + current setting values (Russian labels)
   /help   — full Russian how-to + per-key descriptions + /set examples
+  /get_balance — Bybit UNIFIED equity/available (needs TRADING_MODE demo|mainnet)
   /config — current values + descriptions
   /set KEY VALUE — update runtime_config in SQLite
 
@@ -302,7 +303,11 @@ B) Main runtime (ingest + optional trading + optional operator bot):
    Volumes: ./data/telegram, ./data/trading
    Host data dirs must be writable by container UID 1000 (or APP_UID/APP_GID)
 
-C) Simulate signals without Telegram (Demo only):
+C) Check Bybit balance via API (no Telegram):
+     python -m app.tools.get_balance
+   Requires TRADING_MODE=demo|mainnet and BYBIT_API_KEY/SECRET.
+
+D) Simulate signals without Telegram (Demo only):
      python -m app.tools.simulate_signal --symbol BTC --side dump
      python -m app.tools.simulate_signal --file data/trading/test_signals.json
      python -m app.tools.simulate_signal --file ... --dry-run

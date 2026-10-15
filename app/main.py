@@ -73,6 +73,8 @@ async def run_ingestion() -> None:
         config_source=config_service,
         notifier=notifier,
     )
+    if bot is not None and trading is not None:
+        bot.attach_exchange(trading.gateway, trading_mode=settings.trading_mode.value)
     processor = LoggingMessageProcessor(
         log_message_text=settings.log_telegram_message_text,
         orchestrator=trading.orchestrator if trading else None,
