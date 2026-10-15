@@ -105,7 +105,7 @@ def test_format_balance_shows_equity_and_available() -> None:
     assert "Equity: <code>1000.5</code>" in text
     assert "Available: <code>800.25</code>" in text
     assert "Режим: <code>demo</code>" in text
-    assert "TRADE_MARGIN_PCT" in text
+    assert "TRADE_MARGIN_PCT" not in text
 
 
 def test_format_open_exposure_lists_positions_and_orders() -> None:
@@ -141,7 +141,7 @@ def test_format_open_exposure_lists_positions_and_orders() -> None:
     assert "margin(IM)=<code>100</code>" in text
     assert "Открытые ордера</b> (1)" in text
     assert "ETHUSDT" in text
-    assert "Available=0" in text
+    assert "Available=0" not in text
 
 
 def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) -> None:

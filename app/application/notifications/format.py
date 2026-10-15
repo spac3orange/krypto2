@@ -221,10 +221,7 @@ def format_balance(snapshot: AccountSnapshot, *, trading_mode: str) -> str:
         f"Equity: <code>{html.escape(str(snapshot.total_equity))}</code>\n"
         f"Available: <code>{html.escape(str(snapshot.total_available_balance))}</code>\n"
         f"Margin mode: <code>{html.escape(snapshot.margin_mode or '—')}</code>\n"
-        f"Account: <code>{html.escape(snapshot.account_type)}</code>\n"
-        "\n"
-        "<i>Ордер отклоняется, если Available меньше "
-        "Equity × TRADE_MARGIN_PCT / 100.</i>"
+        f"Account: <code>{html.escape(snapshot.account_type)}</code>"
     )
 
 
@@ -282,11 +279,6 @@ def format_open_exposure(
         if len(orders) > 30:
             lines.append(f"<i>… ещё {len(orders) - 30}</i>")
 
-    lines.append("")
-    lines.append(
-        "<i>Available=0 чаще из‑за позиций (занятая маржа), "
-        "а не только из‑за ордеров.</i>"
-    )
     return "\n".join(lines)
 
 

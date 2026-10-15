@@ -47,6 +47,43 @@ def _as_bool(value: object) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes"}
 
 
+def settle_coin_available(
+    account: dict[str, Any],
+    *,
+    settle_coin: str,
+    margin_mode: str,
+) -> Decimal:
+    """Derivatives free margin for settle coin.
+
+    Bybit docs: account-wide ``totalAvailableBalance`` is **not applicable**
+    under Isolated Margin (often empty/0). For isolated use::
+
+        walletBalance - totalPositionIM - totalOrderIM - locked - bonus
+    """
+    coins = account.get("coin") or []
+    settle: dict[str, Any] | None = None
+    for row in coins:
+        if str(row.get("coin") or "").upper() == settle_coin.upper():
+            settle = row
+            break
+
+    isolated = "ISOLATED" in (margin_mode or "").upper()
+    account_available = account.get("totalAvailableBalance")
+    if not isolated and account_available not in (None, ""):
+        return max(_d(account_available), Decimal("0"))
+
+    if settle is None:
+        return Decimal("0")
+    free = (
+        _d(settle.get("walletBalance"))
+        - _d(settle.get("totalPositionIM"))
+        - _d(settle.get("totalOrderIM"))
+        - _d(settle.get("locked"))
+        - _d(settle.get("bonus"))
+    )
+    return max(free, Decimal("0"))
+
+
 class BybitGateway:
     """Async facade over sync pybit HTTP (+ private WS for fill hints)."""
 
@@ -193,6 +230,7 @@ class BybitGateway:
         result = await self._call(
             self._http.get_wallet_balance,
             accountType="UNIFIED",
+            coin=self._settle_coin,
         )
         lists = (result.get("result") or {}).get("list") or []
         if not lists:
@@ -200,7 +238,11 @@ class BybitGateway:
         account = lists[0]
         return AccountSnapshot(
             total_equity=_d(account.get("totalEquity")),
-            total_available_balance=_d(account.get("totalAvailableBalance")),
+            total_available_balance=settle_coin_available(
+                account,
+                settle_coin=self._settle_coin,
+                margin_mode=info.margin_mode,
+            ),
             margin_mode=info.margin_mode,
             unified_margin_status=info.unified_margin_status,
         )
