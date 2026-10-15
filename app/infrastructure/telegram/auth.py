@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 async def authorize() -> None:
     """Run interactive Telethon login and persist the session file."""
     settings = load_auth_settings()
-    setup_logging(settings.log_level)
+    setup_logging(settings.log_level, log_dir=settings.log_dir)
     ensure_session_directory(settings.telegram_session_path)
 
     client = create_telegram_client(

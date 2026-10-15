@@ -9,8 +9,8 @@ from app.core.errors import ConfigurationError
 from app.domain.trading.enums import OrderSizingPrice, TradingMode
 from app.domain.trading.runtime_config import RuntimeConfigStore, RuntimeTradingConfig
 
-_TRUE = {"1", "true", "yes", "on"}
-_FALSE = {"0", "false", "no", "off"}
+_TRUE = {"1", "true", "yes", "on", "вкл", "да"}
+_FALSE = {"0", "false", "no", "off", "выкл", "нет"}
 
 _BOOL_KEYS = frozenset(
     {
@@ -67,13 +67,16 @@ def _bool_text(value: bool) -> str:
     return "true" if value else "false"
 
 
+_BOOL_HINT = "true | false | 1 | 0 | on | off | вкл | выкл | да | нет"
+
+
 def _parse_bool(raw: str) -> bool:
     key = raw.strip().lower()
     if key in _TRUE:
         return True
     if key in _FALSE:
         return False
-    msg = f"expected true or false, got {raw!r}"
+    msg = f"Допустимо: {_BOOL_HINT}"
     raise ConfigurationError(msg)
 
 
@@ -81,7 +84,7 @@ def _parse_decimal(raw: str, *, label: str) -> Decimal:
     try:
         return Decimal(raw.strip())
     except InvalidOperation as exc:
-        msg = f"{label} is not a number: {raw!r}"
+        msg = f"{label}: нужно число, получено {raw!r}"
         raise ConfigurationError(msg) from exc
 
 
@@ -165,7 +168,7 @@ class RuntimeConfigService:
         normalized = key.strip().upper()
         if normalized not in _KEYS:
             known = ", ".join(_KEYS)
-            msg = f"Unknown config key {key!r}. Known: {known}"
+            msg = f"Неизвестный ключ {key!r}. Доступны: {known}"
             raise ConfigurationError(msg)
         current = self.get()
         stored = _apply_field(current, normalized, raw_value, allow_mainnet=self._allow_mainnet)
@@ -195,62 +198,66 @@ def _apply_field(
     if key == "TRADING_MODE":
         mode = raw_value.strip().lower()
         if mode == "testnet":
-            msg = "TRADING_MODE=testnet is not supported; use demo"
+            msg = "TRADING_MODE=testnet не поддерживается. Допустимо: disabled | demo | mainnet"
             raise ConfigurationError(msg)
         if mode == TradingMode.MAINNET.value and not allow_mainnet:
-            msg = "TRADING_MODE=mainnet requires ALLOW_MAINNET_TRADING=true"
+            msg = "TRADING_MODE=mainnet сейчас запрещён. Допустимо: disabled | demo"
             raise ConfigurationError(msg)
         try:
             return TradingMode(mode).value
         except ValueError as exc:
-            msg = "TRADING_MODE must be disabled, demo, or mainnet"
+            msg = "Допустимо: disabled | demo | mainnet"
             raise ConfigurationError(msg) from exc
     if key == "BYBIT_LEVERAGE":
         value = _parse_decimal(raw_value, label=key)
         if value < Decimal("1"):
-            msg = "BYBIT_LEVERAGE must be >= 1"
+            msg = "Допустимо: число ≥ 1"
             raise ConfigurationError(msg)
         return str(value)
     if key == "TRADE_MARGIN_PCT":
         value = _parse_decimal(raw_value, label=key)
         if not (Decimal("0") < value <= Decimal("100")):
-            msg = "TRADE_MARGIN_PCT must satisfy 0 < value <= 100"
+            msg = "Допустимо: число от 0 до 100, не включая 0"
             raise ConfigurationError(msg)
         return str(value)
     if key == "ORDER_SIZING_PRICE":
         try:
             return OrderSizingPrice(raw_value.strip()).value
         except ValueError as exc:
-            msg = "ORDER_SIZING_PRICE must be lastPrice or markPrice"
+            msg = "Допустимо: lastPrice | markPrice"
             raise ConfigurationError(msg) from exc
     if key in _BOOL_KEYS:
-        enabled = _parse_bool(raw_value)
+        try:
+            enabled = _parse_bool(raw_value)
+        except ConfigurationError as exc:
+            msg = f"Допустимо: {_BOOL_HINT}"
+            raise ConfigurationError(msg) from exc
         if key == "STOP_LOSS_ENABLED" and enabled and current.stop_loss_pct is None:
-            msg = "Set STOP_LOSS_PCT before enabling the stop"
+            msg = "Сначала задай STOP_LOSS_PCT, потом включай стоп"
             raise ConfigurationError(msg)
         if key == "TAKE_PROFIT_ENABLED" and enabled and current.take_profit_pct <= 0:
-            msg = "TAKE_PROFIT_PCT must be > 0"
+            msg = "Сначала задай TAKE_PROFIT_PCT > 0"
             raise ConfigurationError(msg)
         return _bool_text(enabled)
     if key == "TAKE_PROFIT_PCT":
         value = _parse_decimal(raw_value, label=key)
         if value <= 0:
-            msg = "TAKE_PROFIT_PCT must be > 0"
+            msg = "Допустимо: число > 0"
             raise ConfigurationError(msg)
         return str(value)
     if key == "STOP_LOSS_PCT":
         value = _parse_decimal(raw_value, label=key)
         if value <= 0:
-            msg = "STOP_LOSS_PCT must be > 0"
+            msg = "Допустимо: число > 0"
             raise ConfigurationError(msg)
         return str(value)
     if key == "MAX_SIGNAL_AGE_SECONDS":
         raw = raw_value.strip()
         if not raw.isdigit() or int(raw) <= 0:
-            msg = "MAX_SIGNAL_AGE_SECONDS must be a positive integer"
+            msg = "Допустимо: целое число ≥ 1"
             raise ConfigurationError(msg)
         return str(int(raw))
-    msg = f"Unknown config key {key!r}"
+    msg = f"Неизвестный ключ {key!r}"
     raise ConfigurationError(msg)
 
 

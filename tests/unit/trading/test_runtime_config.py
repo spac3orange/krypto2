@@ -64,7 +64,7 @@ def test_seed_then_set_leverage_persists(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_set_mainnet_rejected_without_kill_switch(monkeypatch: pytest.MonkeyPatch) -> None:
     service = RuntimeConfigService(_settings(monkeypatch), MemoryConfigStore())
     service.seed()
-    with pytest.raises(ConfigurationError, match="ALLOW_MAINNET_TRADING"):
+    with pytest.raises(ConfigurationError, match="mainnet|disabled | demo"):
         service.set_field("TRADING_MODE", "mainnet")
     assert service.get().trading_mode is TradingMode.DEMO
 
@@ -96,7 +96,7 @@ def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) ->
     assert "<b><u>Текущие настройки</u></b>" in start
     assert "<b>Режим торговли:</b> <code>demo</code>" in start
     assert "<b>Плечо:</b> <code>5</code>" in start
-    assert "<b>Стоп, % от цены входа:</b> <code>3%</code>" in start
+    assert "<b>Стоп, % от цены входа:</b> <code>3</code>" in start
     assert "python -m app" not in start
     assert ".env" not in start
     assert "sqlite" not in start.lower()
@@ -109,7 +109,8 @@ def test_start_is_short_and_help_is_detailed(monkeypatch: pytest.MonkeyPatch) ->
     assert ".env" not in help_text
     assert "ALLOW_MAINNET" not in help_text
     assert "<b>Плечо</b>" in help_text
-    assert "<i>Пример:</i> /set BYBIT_LEVERAGE 5" in help_text
+    assert "Допустимо:" in help_text
+    assert "<i>Пример:</i> <code>/set BYBIT_LEVERAGE 5</code>" in help_text
     assert "sqlite" not in help_text.lower()
     assert "База:" not in help_text
 
@@ -120,8 +121,31 @@ def test_config_view_describes_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     text = format_runtime_config(service.get())
     assert "<b><u>TRADING_MODE</u></b> = <code>demo</code>" in text
     assert "<b>Режим торговли</b>" in text
+    assert "<b>Допустимо:</b> <code>disabled | demo | mainnet</code>" in text
+    assert "<b>Допустимо:</b> <code>lastPrice | markPrice</code>" in text
     assert "База:" not in text
     assert "sqlite" not in text.lower()
+
+
+def test_set_accepts_russian_bool(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = RuntimeConfigService(_settings(monkeypatch), MemoryConfigStore())
+    service.seed()
+    updated = service.set_field("ORDERS_ENABLED", "выкл")
+    assert updated.orders_enabled is False
+    updated = service.set_field("REACT_DUMP", "да")
+    assert updated.react_dump is True
+
+
+def test_set_rejects_bad_value_with_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.application.notifications.format import format_set_error
+
+    service = RuntimeConfigService(_settings(monkeypatch), MemoryConfigStore())
+    service.seed()
+    with pytest.raises(ConfigurationError, match="Допустимо"):
+        service.set_field("TRADING_MODE", "paper")
+    err = format_set_error("TRADING_MODE", "Допустимо: disabled | demo | mainnet")
+    assert "disabled | demo | mainnet" in err
+    assert "/set TRADING_MODE demo" in err
 
 
 def test_bybit_trade_url_appends_usdt() -> None:

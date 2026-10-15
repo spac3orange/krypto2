@@ -11,6 +11,8 @@ from app.application.notifications.format import (
     config_help_text,
     config_start_text,
     format_runtime_config,
+    format_set_error,
+    format_set_usage,
 )
 from app.application.trading.runtime_config_service import RuntimeConfigService
 from app.core.errors import ConfigurationError
@@ -48,12 +50,15 @@ def build_router(admin_ids: frozenset[int], config: RuntimeConfigService) -> Rou
     async def set_config(message: Message) -> None:
         parts = (message.text or "").split(maxsplit=2)
         if len(parts) < 3:
-            await message.answer("Формат: /set КЛЮЧ ЗНАЧЕНИЕ")
+            await message.answer(format_set_usage(), parse_mode=ParseMode.HTML)
             return
         try:
             updated = config.set_field(parts[1], parts[2])
         except ConfigurationError as exc:
-            await message.answer(f"Ошибка: {exc}")
+            await message.answer(
+                format_set_error(parts[1], str(exc)),
+                parse_mode=ParseMode.HTML,
+            )
             return
         await message.answer(format_runtime_config(updated), parse_mode=ParseMode.HTML)
 

@@ -70,7 +70,10 @@ class _FieldHelp:
     title: str
     details: str
     example: str
+    allowed: str
 
+
+_BOOL_ALLOWED = "true | false | 1 | 0 | on | off | вкл | выкл | да | нет"
 
 _FIELD_HELP: dict[str, _FieldHelp] = {
     "TRADING_MODE": _FieldHelp(
@@ -79,74 +82,88 @@ _FIELD_HELP: dict[str, _FieldHelp] = {
         "demo — сделки на демо-счёте. "
         "mainnet — сделки на реальном счёте (если разрешено отдельно).",
         "/set TRADING_MODE demo",
+        "disabled | demo | mainnet",
     ),
     "BYBIT_LEVERAGE": _FieldHelp(
         "Плечо",
         "Плечо для новых сделок. На уже открытую позицию не действует.",
         "/set BYBIT_LEVERAGE 5",
+        "число ≥ 1 (например 5)",
     ),
     "TRADE_MARGIN_PCT": _FieldHelp(
         "Маржа, % депозита",
         "Какая доля депозита идёт в маржу одной сделки. "
         "Объём позиции ≈ маржа × плечо.",
         "/set TRADE_MARGIN_PCT 1",
+        "число от 0 до 100, не включая 0 (например 1 или 0.5)",
     ),
     "ORDER_SIZING_PRICE": _FieldHelp(
         "Цена для расчёта объёма",
         "lastPrice — цена последней сделки. markPrice — маркировочная цена.",
         "/set ORDER_SIZING_PRICE lastPrice",
+        "lastPrice | markPrice",
     ),
     "TAKE_PROFIT_ENABLED": _FieldHelp(
         "Тейк-профит",
         "Включить или выключить тейк-профит.",
         "/set TAKE_PROFIT_ENABLED true",
+        _BOOL_ALLOWED,
     ),
     "TAKE_PROFIT_PCT": _FieldHelp(
         "Тейк, % от цены входа",
         "На сколько процентов от цены входа ставить тейк. "
         "Лонг — выше входа, шорт — ниже.",
         "/set TAKE_PROFIT_PCT 2",
+        "число > 0 (например 2)",
     ),
     "STOP_LOSS_ENABLED": _FieldHelp(
         "Стоп-лосс",
-        "Включить или выключить стоп-лосс.",
+        "Включить или выключить стоп-лосс. Сначала задай STOP_LOSS_PCT.",
         "/set STOP_LOSS_ENABLED true",
+        _BOOL_ALLOWED,
     ),
     "STOP_LOSS_PCT": _FieldHelp(
         "Стоп, % от цены входа",
         "На сколько процентов от цены входа ставить стоп. "
         "Лонг — ниже входа, шорт — выше.",
         "/set STOP_LOSS_PCT 3",
+        "число > 0 (например 3)",
     ),
     "MAX_SIGNAL_AGE_SECONDS": _FieldHelp(
         "Максимальный возраст сигнала, секунды",
         "Сигнал старше этого времени сделку не открывает.",
         "/set MAX_SIGNAL_AGE_SECONDS 30",
+        "целое число ≥ 1 (например 30)",
     ),
     "EXECUTE_EDITED_MESSAGES": _FieldHelp(
         "Торговать правки сообщений",
         "Нет — правка сигнала новую сделку не открывает. Да — правка тоже торгуется.",
         "/set EXECUTE_EDITED_MESSAGES false",
+        _BOOL_ALLOWED,
     ),
     "REACT_DUMP": _FieldHelp(
         "Реакция на Dump",
         "Вкл — реагируем на 🔻 Dump (открываем лонг). Выкл — такие сигналы пропускаем.",
         "/set REACT_DUMP true",
+        _BOOL_ALLOWED,
     ),
     "REACT_PUMP": _FieldHelp(
         "Реакция на Pump (лонг)",
         "Вкл — реагируем на 🟢 Pump (открываем лонг). Выкл — такие сигналы пропускаем.",
         "/set REACT_PUMP true",
+        _BOOL_ALLOWED,
     ),
     "REACT_SHORT": _FieldHelp(
         "Реакция на Short",
         "Вкл — реагируем на 🔴 Pump / Short (открываем шорт). Выкл — такие сигналы пропускаем.",
         "/set REACT_SHORT true",
+        _BOOL_ALLOWED,
     ),
     "ORDERS_ENABLED": _FieldHelp(
         "Размещение ордеров",
         "Вкл — после сигнала ставим сделки. Выкл — сигнал показываем, ордера не отправляем.",
         "/set ORDERS_ENABLED true",
+        _BOOL_ALLOWED,
     ),
 }
 
@@ -156,9 +173,7 @@ def _on_off(enabled: bool) -> str:
 
 
 def _config_rows(config: RuntimeTradingConfig) -> tuple[tuple[str, str], ...]:
-    stop = "выкл" if not config.stop_loss_enabled else f"{config.stop_loss_pct}%"
-    take = "выкл" if not config.take_profit_enabled else f"{config.take_profit_pct}%"
-    edited = "да" if config.execute_edited_messages else "нет"
+    stop_pct = "" if config.stop_loss_pct is None else str(config.stop_loss_pct)
     return (
         ("TRADING_MODE", config.trading_mode.value),
         ("ORDERS_ENABLED", _on_off(config.orders_enabled)),
@@ -166,27 +181,64 @@ def _config_rows(config: RuntimeTradingConfig) -> tuple[tuple[str, str], ...]:
         ("REACT_PUMP", _on_off(config.react_pump)),
         ("REACT_SHORT", _on_off(config.react_short)),
         ("BYBIT_LEVERAGE", str(config.bybit_leverage)),
-        ("TRADE_MARGIN_PCT", f"{config.trade_margin_pct}%"),
+        ("TRADE_MARGIN_PCT", str(config.trade_margin_pct)),
         ("ORDER_SIZING_PRICE", config.order_sizing_price.value),
-        ("TAKE_PROFIT", take),
-        ("STOP_LOSS", stop),
-        ("MAX_SIGNAL_AGE_SECONDS", f"{config.max_signal_age_seconds} с"),
-        ("EXECUTE_EDITED_MESSAGES", edited),
+        ("TAKE_PROFIT_ENABLED", _on_off(config.take_profit_enabled)),
+        ("TAKE_PROFIT_PCT", str(config.take_profit_pct)),
+        ("STOP_LOSS_ENABLED", _on_off(config.stop_loss_enabled)),
+        ("STOP_LOSS_PCT", stop_pct or "не задан"),
+        ("MAX_SIGNAL_AGE_SECONDS", str(config.max_signal_age_seconds)),
+        ("EXECUTE_EDITED_MESSAGES", _on_off(config.execute_edited_messages)),
     )
 
 
 def format_runtime_config(config: RuntimeTradingConfig) -> str:
-    """Current editable settings with a short Russian caption for each value."""
-    lines = ["<b><u>Настройки</u></b>", ""]
+    """Current editable settings with allowed values for each key."""
+    lines = [
+        "<b><u>Настройки</u></b>",
+        "Менять только через <code>/set КЛЮЧ ЗНАЧЕНИЕ</code>.",
+        "Если значение не из списка — настройка не применится.",
+        "",
+    ]
     for key, value in _config_rows(config):
-        field = _FIELD_HELP[_help_key(key)]
+        field = _FIELD_HELP[key]
         lines.append(f"<b><u>{html.escape(key)}</u></b> = <code>{html.escape(value)}</code>")
         lines.append(f"<b>{html.escape(field.title)}</b>")
         lines.append(html.escape(field.details))
+        lines.append(f"<b>Допустимо:</b> <code>{html.escape(field.allowed)}</code>")
+        lines.append(f"<i>Пример:</i> <code>{html.escape(field.example)}</code>")
         lines.append("")
-    lines.append("<b>Изменить:</b> /set КЛЮЧ ЗНАЧЕНИЕ")
     lines.append("<b>Подробности:</b> /help")
     return "\n".join(lines).rstrip()
+
+
+def format_set_usage() -> str:
+    """Help for incomplete /set."""
+    lines = [
+        "<b>Формат:</b> <code>/set КЛЮЧ ЗНАЧЕНИЕ</code>",
+        "",
+        "<b>Доступные ключи и значения:</b>",
+    ]
+    for key, field in _FIELD_HELP.items():
+        lines.append(f"<code>{html.escape(key)}</code> — {html.escape(field.allowed)}")
+    lines.append("")
+    lines.append("Текущие значения: /config")
+    return "\n".join(lines)
+
+
+def format_set_error(key: str, message: str) -> str:
+    """Validation error with allowed values for the key when known."""
+    normalized = key.strip().upper()
+    lines = [f"<b>Ошибка:</b> {html.escape(message)}"]
+    field = _FIELD_HELP.get(normalized)
+    if field is not None:
+        lines.append(f"<b>Ключ:</b> <code>{html.escape(normalized)}</code>")
+        lines.append(f"<b>Допустимо:</b> <code>{html.escape(field.allowed)}</code>")
+        lines.append(f"<i>Пример:</i> <code>{html.escape(field.example)}</code>")
+    else:
+        lines.append("<b>Доступные ключи:</b>")
+        lines.append(", ".join(f"<code>{html.escape(name)}</code>" for name in _FIELD_HELP))
+    return "\n".join(lines)
 
 
 def config_start_text(config: RuntimeTradingConfig) -> str:
@@ -200,7 +252,7 @@ def config_start_text(config: RuntimeTradingConfig) -> str:
         "<b><u>Текущие настройки</u></b>",
     ]
     for key, value in _config_rows(config):
-        title = html.escape(_FIELD_HELP[_help_key(key)].title)
+        title = html.escape(_FIELD_HELP[key].title)
         lines.append(f"<b>{title}:</b> <code>{html.escape(value)}</code>")
     return "\n".join(lines)
 
@@ -238,14 +290,7 @@ def config_help_text() -> str:
         title = html.escape(field.title)
         lines.append(f"<b><u>{html.escape(key)}</u></b> — <b>{title}</b>")
         lines.append(html.escape(field.details))
-        lines.append(f"<i>Пример:</i> {html.escape(field.example)}")
+        lines.append(f"<b>Допустимо:</b> <code>{html.escape(field.allowed)}</code>")
+        lines.append(f"<i>Пример:</i> <code>{html.escape(field.example)}</code>")
         lines.append("")
     return "\n".join(lines).rstrip()
-
-
-def _help_key(display_key: str) -> str:
-    if display_key == "TAKE_PROFIT":
-        return "TAKE_PROFIT_PCT"
-    if display_key == "STOP_LOSS":
-        return "STOP_LOSS_PCT"
-    return display_key

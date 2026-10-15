@@ -43,5 +43,7 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Local data
+# Local data / runtime logs
 *.log
+logs/*
+!logs/.gitkeep

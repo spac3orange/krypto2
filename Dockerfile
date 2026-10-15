@@ -21,12 +21,12 @@ COPY app ./app
 
 RUN pip install --upgrade pip \
     && pip install . \
-    && mkdir -p /app/data/telegram /app/data/trading \
+    && mkdir -p /app/data/telegram /app/data/trading /app/logs \
     && chown -R app:app /app
 
 USER app
 
-VOLUME ["/app/data/telegram", "/app/data/trading"]
+VOLUME ["/app/data/telegram", "/app/data/trading", "/app/logs"]
 
 # Readiness marker written by TelegramIngestionService when connected + source resolved
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

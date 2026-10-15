@@ -14,5 +14,6 @@ services:
     volumes:
       - ./data/telegram:/app/data/telegram
       - ./data/trading:/app/data/trading
+      - ./logs:/app/logs
     restart: unless-stopped
     stop_grace_period: 30s

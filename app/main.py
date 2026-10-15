@@ -33,7 +33,15 @@ logger = logging.getLogger(__name__)
 async def run_ingestion() -> None:
     """Validate config, optional trading preflight, start Telegram ingestion."""
     settings = load_settings()
-    setup_logging(settings.log_level)
+    setup_logging(settings.log_level, log_dir=settings.log_dir)
+    log_event(
+        logger,
+        logging.INFO,
+        "app.logging.ready",
+        "Logging configured",
+        log_dir=str(settings.log_dir.resolve()),
+        log_level=settings.log_level,
+    )
 
     config_service = RuntimeConfigService(
         settings,

@@ -141,6 +141,15 @@ Volumes:
 
 - `./data/telegram` — Telethon session
 - `./data/trading` — execution SQLite journal
+- `./logs` — JSON logs (`app.jsonl` all events, `errors.jsonl` WARNING+)
+
+Logs rotate daily (14 days kept). Search errors with:
+
+```bash
+# Docker host
+grep '"level": "ERROR"' logs/errors.jsonl
+grep BLUR logs/app.jsonl
+```
 
 ## Development
 

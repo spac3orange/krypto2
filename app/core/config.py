@@ -51,6 +51,7 @@ class Settings(BaseSettings):
         default=False,
         alias="LOG_TELEGRAM_MESSAGE_TEXT",
     )
+    log_dir: Path = Field(default=Path("logs"), alias="LOG_DIR")
 
     telegram_api_id: int = Field(alias="TELEGRAM_API_ID")
     telegram_api_hash: str = Field(alias="TELEGRAM_API_HASH")
@@ -343,6 +344,7 @@ class AuthSettings(BaseSettings):
         default="INFO",
         alias="LOG_LEVEL",
     )
+    log_dir: Path = Field(default=Path("logs"), alias="LOG_DIR")
     telegram_api_id: int = Field(alias="TELEGRAM_API_ID")
     telegram_api_hash: str = Field(alias="TELEGRAM_API_HASH")
     telegram_session_path: Path = Field(

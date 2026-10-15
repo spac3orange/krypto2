@@ -399,7 +399,7 @@ async def run(argv: list[str] | None = None) -> None:
         timeframe=args.timeframe,
     )
     settings = load_settings()
-    setup_logging(settings.log_level)
+    setup_logging(settings.log_level, log_dir=settings.log_dir)
     require_demo(settings.trading_mode)
 
     trading = await build_trading_subsystem(settings)
