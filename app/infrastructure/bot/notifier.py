@@ -30,7 +30,12 @@ class AiogramOperatorNotifier:
     async def _broadcast(self, text: str) -> None:
         for chat_id in self._chat_ids:
             try:
-                await self._bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
+                await self._bot.send_message(
+                    chat_id,
+                    text,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True,
+                )
             except Exception as exc:  # noqa: BLE001 — notification must not stop trading
                 log_event(
                     logger,
