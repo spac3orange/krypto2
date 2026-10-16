@@ -18,6 +18,7 @@ from app.core.config import Settings
 from app.core.errors import (
     AppError,
     BelowMinNotionalError,
+    BybitApiError,
     ExistingPositionError,
     InstrumentConstraintError,
     InstrumentNotFoundError,
@@ -438,6 +439,27 @@ class TradingSignalOrchestrator:
                 error=str(exc),
                 **base_fields,
             )
+        except BybitApiError as exc:
+            detail = f"{exc.ret_code}:{exc.ret_msg}" if exc.ret_msg else str(exc.ret_code)
+            await self._announce(
+                OrderNotice(
+                    symbol=signal.symbol,
+                    kind=OrderUpdateKind.FAILED,
+                    side=signal.action.value,
+                    reason=f"BybitApiError:{detail}",
+                )
+            )
+            log_event(
+                logger,
+                logging.ERROR,
+                "trading.execution.failed",
+                "Trading execution failed",
+                reason="BybitApiError",
+                error=str(exc),
+                bybit_ret_code=str(exc.ret_code),
+                bybit_ret_msg=exc.ret_msg,
+                **base_fields,
+            )
         except AppError as exc:
             await self._announce(
                 OrderNotice(
@@ -557,15 +579,14 @@ class TradingSignalOrchestrator:
         )
 
         try:
+            # Do not attach provisional TP/SL on create: after ORDER_OPEN_DELAY_SEC
+            # the market may move past those prices and Bybit returns 10001.
+            # TP/SL are installed from actual fill via set_trading_stop below.
             submission = await self._gateway.place_order(
                 symbol=intent.symbol,
                 side=intent.side,
                 qty=intent.quantity,
                 order_link_id=intent.order_link_id,
-                take_profit=intent.provisional_take_profit,
-                stop_loss=intent.provisional_stop_loss,
-                tp_trigger_by=intent.tp_trigger_by if intent.provisional_take_profit else None,
-                sl_trigger_by=(intent.tp_trigger_by if intent.provisional_stop_loss else None),
             )
         except OrderUncertainError:
             remote = await self._gateway.get_order_by_link_id(intent.symbol, intent.order_link_id)

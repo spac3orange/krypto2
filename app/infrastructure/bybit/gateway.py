@@ -429,6 +429,18 @@ class BybitGateway:
         except BybitTransportError as exc:
             raise OrderUncertainError("place_order transport failure") from exc
         except BybitApiError as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "trading.order.reject",
+                "Bybit place_order rejected",
+                symbol=symbol,
+                side=side.value,
+                qty=str(qty),
+                order_link_id=order_link_id,
+                bybit_ret_code=str(exc.ret_code),
+                bybit_ret_msg=exc.ret_msg,
+            )
             # Duplicate orderLinkId means order already exists — treat as uncertain/reconcile.
             if str(exc.ret_code) in {"110072", "20001", "10001"} and "link" in exc.ret_msg.lower():
                 raise OrderUncertainError("duplicate_or_uncertain_order_link") from exc
